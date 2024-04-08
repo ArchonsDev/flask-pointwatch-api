@@ -1,0 +1,36 @@
+# PointWatch Backend API
+
+This is the Backend API for the PointWatch project.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Support](#support)
+- [Contributing](#contributing)
+
+## Installation
+
+Open Git bash and run the following commands:
+
+```sh
+git clone https://github.com/ArchonsDev/flask-pointwatch-api.git
+```
+
+## Usage
+
+Navigate to the project directory and run the following command:
+
+```sh
+flask run --debug
+# or (debugging disabled)
+flask run
+```
+
+## Support
+
+Please [open an issue](https://github.com/ArchonsDev/flask-pointwatch-api) for support.
+
+## Contributing
+
+Please contribute using [Github Flow](https://guides.github.com/introduction/flow/). Create a branch, add commits, and [open a pull request](https://github.com/ArchonsDev/flask-pointwatch-api/compare/).
