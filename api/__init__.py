@@ -1,9 +1,11 @@
 from flask import Flask
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
-from api.controllers import auth_bp
-from api.models import db
 from os import urandom
+
+from .controllers.auth_controller import auth_bp
+from .controllers.user_controller import user_bp
+from .models import db
 
 def create_app():
     app = Flask(__name__)
@@ -11,6 +13,7 @@ def create_app():
     app.config.from_object('config')
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(user_bp, url_prefix="/users")
 
     db.init_app(app)
 
