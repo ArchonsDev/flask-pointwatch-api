@@ -10,15 +10,17 @@ class User(db.Model):
     department = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
 
-    def __init__(self, id, employee_id, email, firstname, lastname, password, department, is_admin):
-        self.id = id
-        self.employee_id = employee_id
-        self.email = email
-        self.firstname = firstname
-        self.lastname = lastname
-        self.password = password
-        self.department = department
-        self.is_admin = is_admin
-
     def __repr__(self):
         return self.email
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "employee_id": self.employee_id,
+            "email": self.email,
+            "firstname": self.firstname,
+            "lastname":  self.lastname,
+            "password": self.password,
+            "department": self.department,
+            "is_admin": self.is_admin
+        }

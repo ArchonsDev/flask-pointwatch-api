@@ -1,24 +1,32 @@
 from flask import Blueprint, request
+from flask_jwt_extended import jwt_required
 
 from api.services import AuthService
-from api.models.user import User
+from ..services.jwt_service import JWTService
 
 auth_bp = Blueprint('auth', __name__)
 
 class AuthController:
-    @staticmethod
     @auth_bp.route('/register', methods=['POST'])
+    @staticmethod
     def register():
         if request.method == 'POST':
-            response = AuthService.create_account(request.form)
+            response, code = AuthService.create_account(request)
 
-    @staticmethod
+        return response, code
+
     @auth_bp.route('/login', methods=['POST'])
+    @staticmethod
     def login():
         if request.method == 'POST':
-            user = User(
-                request.form['email'],
-                request.form['password'],
-            )
+            response, code = AuthService.login(request)
 
-            response = AuthService.login(user)
+        return response, code
+    
+    @auth_bp.route('/ping', methods=['GET'])
+    @staticmethod
+    @jwt_required()
+    def ping():
+        current_user = JWTService.get_identity_from_token()
+        return current_user, 200
+
