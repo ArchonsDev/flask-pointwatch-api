@@ -22,9 +22,30 @@ git clone https://github.com/ArchonsDev/flask-pointwatch-api.git
 Navigate to the project directory and run the following command:
 
 ```sh
-flask run --debug
-# or (debugging disabled)
+# Create a virtual environment (if there is none)
+py -m venv .venv
+# Start the virtual environment
+source .venv/scripts/activate
+# or
+.venv/scripts/activate.bat
+# or
+source .venv/bin/activate
+
 flask run
+# or (debugging enabled)
+flask run --debug
+```
+
+## Migrations
+
+When changes to the schema are made, it is necessary to perform these steps:
+
+```sh
+flask db init
+
+flask db migrate -m "message"
+
+flask db upgrade
 ```
 
 ## Support
