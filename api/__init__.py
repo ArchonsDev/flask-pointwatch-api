@@ -1,9 +1,10 @@
 from flask import Flask
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
-from api.controllers import auth_bp
-from api.models import db
 from os import urandom
+
+from .controllers.auth_controller import auth_bp
+from .models import db
 
 def create_app():
     app = Flask(__name__)

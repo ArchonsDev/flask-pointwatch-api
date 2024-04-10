@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
 
-from api.services import AuthService
+from ..services.auth_service import AuthService
 from ..services.jwt_service import JWTService
 
 auth_bp = Blueprint('auth', __name__)

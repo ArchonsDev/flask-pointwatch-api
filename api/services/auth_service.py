@@ -1,7 +1,8 @@
 from flask import jsonify
 
-from api.models import db
-from api.models.user import User
+from ..models import db
+from ..models.user import User
+
 from .password_encoder_service import PasswordEncoderService
 from .jwt_service import JWTService
 
