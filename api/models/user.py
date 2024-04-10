@@ -9,6 +9,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     department = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
     def __repr__(self):
         return self.email
@@ -22,5 +23,6 @@ class User(db.Model):
             "lastname":  self.lastname,
             "password": self.password,
             "department": self.department,
-            "is_admin": self.is_admin
+            "is_admin": self.is_admin,
+            "is_deleted": self.is_deleted
         }

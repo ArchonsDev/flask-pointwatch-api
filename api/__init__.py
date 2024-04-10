@@ -4,6 +4,7 @@ from flask_jwt_extended import JWTManager
 from os import urandom
 
 from .controllers.auth_controller import auth_bp
+from .controllers.user_controller import user_bp
 from .models import db
 
 def create_app():
@@ -12,6 +13,7 @@ def create_app():
     app.config.from_object('config')
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(user_bp, url_prefix="/users")
 
     db.init_app(app)
 

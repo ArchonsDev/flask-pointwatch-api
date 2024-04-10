@@ -1,5 +1,3 @@
-from flask import jsonify
-
 from ..models import db
 from ..models.user import User
 
@@ -8,9 +6,7 @@ from .jwt_service import JWTService
 
 class AuthService:
     @staticmethod
-    def create_account(request):
-        data = request.json
-
+    def create_account(data):
         employee_id = data.get('employee_id')
         email = data.get('email')
         firstname = data.get('firstname')
@@ -19,11 +15,11 @@ class AuthService:
         department = data.get('department')
 
         if not email or not password:
-            return jsonify({'error': 'Email and password are required.'}), 400
+            return "Email and password are required.", 400
         
         existing_user = User.query.filter_by(email=email).first()
-        if existing_user:
-            return jsonify({'error': 'Email already in use.'}), 409
+        if existing_user and not existing_user.is_deleted:
+            return "Email already in use", 409
 
         user = User(
             employee_id=employee_id,
@@ -37,21 +33,21 @@ class AuthService:
         db.session.add(user)
         db.session.commit()
 
-        return jsonify(user.to_dict()), 200
+        return user.to_dict(), 200
 
     @staticmethod
-    def login(request):
-        data = request.json
-
+    def login(data):
         email = data.get('email')
         password = data.get('password')
 
         existing_user = User.query.filter_by(email=email).first()
         if not existing_user:
-            return jsonify({'error': 'User not found.'}), 404
+            return "User not found.", 404
+        
+        if existing_user.is_deleted:
+            return "This account is disabled.", 403
         
         if not PasswordEncoderService.check_password(existing_user.password, password):
-            return jsonify({'error': 'Invalid credentials.'}), 401
+            return "Invalid credentials.", 401
 
-        access_token = JWTService.generate_token(email)
-        return jsonify({'access_token': access_token}), 200
+        return JWTService.generate_token(email), 200
