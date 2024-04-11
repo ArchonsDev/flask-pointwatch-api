@@ -30,6 +30,8 @@ source .venv/scripts/activate
 .venv/scripts/activate.bat
 # or
 source .venv/bin/activate
+# Install prerequisites
+pip install -r requirements.txt
 
 flask run
 # or (debugging enabled)
