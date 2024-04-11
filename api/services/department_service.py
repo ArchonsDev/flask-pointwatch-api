@@ -12,6 +12,12 @@ def create_department(identity, data):
     code = data.get('code')
     name = data.get('name')
 
+    existing_department_code = Department.query.filter_by(code=code).first()
+    existing_department_name = Department.query.filter_by(name=name).first()
+
+    if existing_department_code or existing_department_name:
+        return "Department already exists", 409
+
     new_department = Department(
         code=code,
         name=name
@@ -20,7 +26,7 @@ def create_department(identity, data):
     db.session.add(new_department)
     db.session.commit()
 
-    return "Department created.", 200
+    return {'message': "Department created."}, 200
 
 def get_all_departments():
     departments = Department.query.all()

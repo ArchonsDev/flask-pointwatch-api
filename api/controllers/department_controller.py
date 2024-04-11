@@ -18,7 +18,8 @@ class DepartmentController:
         if request.method == 'GET':
             response, code = department_service.get_department()
         elif request.method == 'POST':
-            response, code = department_service.create_department(identity, response.data)
+            data = request.json
+            response, code = department_service.create_department(identity, data)
             
 
         return build_response(response, code)
