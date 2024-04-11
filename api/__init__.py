@@ -5,6 +5,8 @@ from os import urandom
 
 from .controllers.auth_controller import auth_bp
 from .controllers.user_controller import user_bp
+from .controllers.department_controller import department_bp
+
 from .models import db
 
 def create_app():
@@ -14,6 +16,7 @@ def create_app():
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(user_bp, url_prefix="/users")
+    app.register_blueprint(department_bp, url_prefix='/departments')
 
     db.init_app(app)
 
