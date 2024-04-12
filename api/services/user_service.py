@@ -4,19 +4,41 @@ from ..models import db
 from ..models.user import User
 from ..models.department import Department
 
-def update_user(identity, id, data):
+def get_all_users(identity):
     requester = User.query.filter_by(email=identity).first()
 
-    if not requester:
-        return "Unauthorized action.", 401
-    
-    user = User.query.get(id)
+    # TODO: Ensure that the requester is an HRD staff or HRD admin.
+    if not requester.is_staff or not requester.is_admin:
+        return "Insufficient permissions. Cannot retrieve user list.", 403
 
+    users = User.query.filter_by(is_deleted=False).all()
+    return [user.to_dict() for user in users], 200
+
+def get_user(identity, user_id):
+    requester = User.query.filter_by(email=identity).first()
+    existing_user = User.query.get(user_id)
+    
+    # Ensure that the user exists.
+    if not existing_user:
+        return "User not found.", 404
+    
+    # Ensure that the requester is the account owner or is an HRD admin.
+    if requester.email != existing_user.email and not requester.is_admin:
+        return "Insufficient permissions. Cannot retrieve user data.", 403
+    
+    return existing_user.to_dict(), 200
+
+def update_user(identity, user_id, data):
+    requester = User.query.filter_by(email=identity).first()
+    user = User.query.get(user_id)
+
+    # Ensure that the account to be updated exists.
     if not user:
         return "User not found", 404
     
+    # Ensure that the requester is the account owner or is an HRD admin.
     if requester.email != user.email and not user.is_admin:
-        return "Unauthorized action", 401
+        return "Insufficient permissions. Cannot update target user data.", 403
     
     if 'firstname' in data:
         user.firstname = data.get('firstname')
@@ -29,36 +51,36 @@ def update_user(identity, id, data):
 
         department = Department.query.get(department_id)
 
+        # Ensure that the new department exists.
         if not department:
             return "Department not found.", 404
         
         user.department = department
+    if 'is_staff' in data:
+        if not requester.is_admin:
+            return "Inusfficient permissions. Cannot promote target user to staff.", 403
+        
+        user.is_admin = data.get('is_admin')
 
     db.session.commit()
     return {"message": "Account updated."}, 200
-
-def get_user(identity, id):
-    requester = User.query.filter_by(email=identity).first()
-    existing_user = User.query.get(id)
     
-    if not existing_user:
-        return "User not found.", 404
-    
-    if requester.email != existing_user.email and not requester.is_admin:
-        return "Unauthorized action.", 401
-    
-    return existing_user.to_dict(), 200
-    
-def delete_user(identity, id):
+def delete_user(identity, user_id):
     requester = User.query.filter_by(email=identity).first()
 
+    # Ensure that the requester is an HRD admin.
     if not requester.is_admin:
-        return "Unauthorized action.", 401
+        return "Insufficient permissions. Cannot delete or disable target user.", 403
 
-    existing_user = User.query.get(id)
+    existing_user = User.query.get(user_id)
 
+    # Ensure that the target account exists.
+    if not existing_user:
+        return "User not found", 404
+
+    # Ensure that the account is not yet deleted.
     if existing_user.is_deleted:
-        return "User already deleted.", 401
+        return "User already deleted.", 409
     
     existing_user.is_deleted = True
 
