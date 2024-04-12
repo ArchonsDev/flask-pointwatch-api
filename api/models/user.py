@@ -12,6 +12,7 @@ class User(db.Model):
     department_id = db.Column(db.Integer, db.ForeignKey('tbldepartments.id'), nullable=True)
     department = db.relationship('Department', back_populates='users')
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    is_staff = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
     def __repr__(self):
