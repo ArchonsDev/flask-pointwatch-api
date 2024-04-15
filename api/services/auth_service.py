@@ -13,6 +13,10 @@ def create_account(data):
     password = password_encoder_service.encode_password(data.get('password'))
     department = data.get('department')
 
+    # Ensure that the Employee ID is present.
+    if not employee_id:
+        return "Employee ID is required.", 400
+
     # Ensure that the email and password fields are present.
     if not email or not password:
         return "Email and password are required.", 400
