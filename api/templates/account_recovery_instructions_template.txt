@@ -1,0 +1,12 @@
+Hello {username},
+
+We received a request to reset your password. If you didn't make this request, you can ignore this email. Otherwise, you can reset your password by clicking on the following link:
+
+Reset Password: <password_reset_url>?token={token}
+
+This link will expire in 24 hours for security reasons.
+
+If you have any questions or need further assistance, please don't hesitate to contact us.
+
+Thank you,
+PointWatch Team

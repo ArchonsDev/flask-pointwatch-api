@@ -1,7 +1,9 @@
+from flask import current_app
+
 from ..models import db
 from ..models.user import User
 
-from . import password_encoder_service, jwt_service
+from . import password_encoder_service, jwt_service, mail_service
 
 def create_account(data):
     employee_id = data.get('employee_id')
@@ -14,6 +16,9 @@ def create_account(data):
     # Ensure that the email and password fields are present.
     if not email or not password:
         return "Email and password are required.", 400
+    
+    if not department:
+        return "Department is required", 400
     
     # Ensure that the email provided is not in use.
     existing_user = User.query.filter_by(email=email).first()
@@ -53,3 +58,36 @@ def login(data):
         return "Invalid credentials.", 401
 
     return {'access_token': jwt_service.generate_token(email)}, 200
+
+def recover_account(data):
+    email = data.get('email')
+
+    existing_user = User.query.filter_by(email=email).first()
+    # Ensure that the email is registered to an account.
+    if not existing_user:
+        return "Email is not registered.", 404
+    
+    token = jwt_service.generate_token(existing_user.email)
+    # TODO: Mail token to the registered email
+    with current_app.open_resource('templates/account_recovery_instructions_template.txt', 'r') as f:
+        mail_template = f.read()
+
+    mail_body = mail_template.format(username=existing_user.firstname, token=token)
+    mail_service.send_mail('Account Recovery | PointWatch', [existing_user.email,], mail_body)
+    
+    return {'message': 'Account recovery instructions sent.'}, 200
+
+def reset_password(token, data):
+    if not token:
+        return "Access token is required.", 400
+    
+    if not 'password' in data:
+        return "New password is required.", 400
+    
+    identity = jwt_service.decode_token(token).get('sub')
+    user = User.query.filter_by(email=identity).first()
+
+    user.password = password_encoder_service.encode_password(data.get('password'))
+    
+    db.session.commit()
+    return {'message': "Password changed."}, 200

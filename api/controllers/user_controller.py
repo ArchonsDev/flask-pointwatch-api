@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required
 from .base_controller import build_response
 from ..services import jwt_service, user_service
 
-user_bp = Blueprint('users', __name__)
+user_bp = Blueprint('users', __name__, url_prefix='/users')
 
 @user_bp.route('/', methods=['GET'])
 @jwt_required()

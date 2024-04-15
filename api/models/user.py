@@ -9,8 +9,7 @@ class User(db.Model):
     firstname = db.Column(db.String(255), nullable=True)
     lastname = db.Column(db.String(255), nullable=True)
     password = db.Column(db.String(255), nullable=False)
-    department_id = db.Column(db.Integer, db.ForeignKey('tbldepartments.id'), nullable=True)
-    department = db.relationship('Department', back_populates='users')
+    department = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_staff = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
@@ -26,7 +25,8 @@ class User(db.Model):
             "firstname": self.firstname,
             "lastname":  self.lastname,
             "password": self.password,
-            "department": self.department.name if self.department else None,
+            "department": self.department,
+            "is_staff": self.is_staff,
             "is_admin": self.is_admin,
             "is_deleted": self.is_deleted
         }

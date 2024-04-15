@@ -133,3 +133,6 @@ dmypy.json
 cython_debug/
 
 migrations/
+
+config.py
+oauth_config.py

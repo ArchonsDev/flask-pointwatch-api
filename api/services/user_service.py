@@ -2,7 +2,6 @@ from ..services import password_encoder_service
 
 from ..models import db
 from ..models.user import User
-from ..models.department import Department
 
 def get_all_users(identity):
     requester = User.query.filter_by(email=identity).first()
@@ -39,23 +38,15 @@ def update_user(identity, user_id, data):
     # Ensure that the requester is the account owner or is an HRD admin.
     if requester.email != user.email and not user.is_admin:
         return "Insufficient permissions. Cannot update target user data.", 403
-    
+
     if 'firstname' in data:
         user.firstname = data.get('firstname')
     if 'lastname' in data:
         user.lastname = data.get('lastname')
     if 'password' in data:
         user.password = password_encoder_service.encode_password(data.get('password'))
-    if 'department_id' in data:
-        department_id = data.get('department_id')
-
-        department = Department.query.get(department_id)
-
-        # Ensure that the new department exists.
-        if not department:
-            return "Department not found.", 404
-        
-        user.department = department
+    if 'department' in data:
+        user.department = data.get('department')
     if 'is_staff' in data:
         if not requester.is_admin:
             return "Inusfficient permissions. Cannot promote target user to staff.", 403
