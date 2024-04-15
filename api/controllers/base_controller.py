@@ -1,7 +1,7 @@
-from flask import jsonify
+from flask import jsonify, Response
 
 def build_response(data, code):
     if code >= 400 and code <= 499:
-        return jsonify({'error': data}), code
+        return Response(jsonify({'error': data}), status=code, mimetype='application/json')
     
-    return jsonify(data), code
+    return Response(jsonify(data), status=code, mimetype='application/json')

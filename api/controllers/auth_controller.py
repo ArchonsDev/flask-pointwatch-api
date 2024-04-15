@@ -10,7 +10,7 @@ def register():
     data = request.json
 
     response, code = auth_service.create_account(data)
-
+    
     return build_response(response, code)
 
 @auth_bp.route('/login', methods=['POST'])
