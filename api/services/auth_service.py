@@ -15,19 +15,19 @@ def create_account(data):
 
     # Ensure that the Employee ID is present.
     if not employee_id:
-        return "Employee ID is required.", 400
+        return {"error": "Employee ID is required."}, 400
 
     # Ensure that the email and password fields are present.
     if not email or not password:
-        return "Email and password are required.", 400
+        return {"error": "Email and password are required."}, 400
     
     if not department:
-        return "Department is required", 400
+        return {"error": "Department is required"}, 400
     
     # Ensure that the email provided is not in use.
     existing_user = User.query.filter_by(email=email).first()
     if existing_user and not existing_user.is_deleted:
-        return "Email already in use.", 409
+        return {"error": "Email already in use."}, 409
 
     user = User(
         employee_id=employee_id,
@@ -51,15 +51,15 @@ def login(data):
 
     # Ensure that the user exists.
     if not existing_user:
-        return "User not found.", 404
+        return {"error": "User not found."}, 404
     
     # Esnure that the user account is not deleted/disabled.
     if existing_user.is_deleted:
-        return "This account has been disabled.", 403
+        return {"error": "This account has been disabled."}, 403
     
     # Ensure that the credentials are valid.
     if not password_encoder_service.check_password(existing_user.password, password):
-        return "Invalid credentials.", 401
+        return {"error": "Invalid credentials."}, 401
 
     return {'access_token': jwt_service.generate_token(email)}, 200
 
@@ -69,7 +69,7 @@ def recover_account(data):
     existing_user = User.query.filter_by(email=email).first()
     # Ensure that the email is registered to an account.
     if not existing_user:
-        return "Email is not registered.", 404
+        return {"error": "Email is not registered."}, 404
     
     token = jwt_service.generate_token(existing_user.email)
     # TODO: Mail token to the registered email
@@ -83,10 +83,10 @@ def recover_account(data):
 
 def reset_password(token, data):
     if not token:
-        return "Access token is required.", 400
+        return {"error": "Access token is required."}, 400
     
     if not 'password' in data:
-        return "New password is required.", 400
+        return {"error": "New password is required."}, 400
     
     identity = jwt_service.decode_token(token).get('sub')
     user = User.query.filter_by(email=identity).first()
