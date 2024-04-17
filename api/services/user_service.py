@@ -13,9 +13,13 @@ def get_all_users(identity):
     users = User.query.filter_by(is_deleted=False).all()
     return {"users": [user.to_dict() for user in users]}, 200
 
-def get_user(identity, user_id):
+def get_user(identity=None, user_id=None):
     requester = User.query.filter_by(email=identity).first()
-    existing_user = User.query.get(user_id)
+
+    if identity:
+        existing_user = User.query.filter_by(email=identity).first()
+    else:
+        existing_user = User.query.get(user_id)
     
     # Ensure that the user exists.
     if not existing_user:

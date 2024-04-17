@@ -19,7 +19,7 @@ def process_user(user_id):
     identity = jwt_service.get_identity_from_token()
 
     if request.method == 'GET':
-        response, code = user_service.get_user(identity, user_id)
+        response, code = user_service.get_user(identity, user_id=user_id)
     elif request.method == 'PUT':
         data = request.json
         response, code = user_service.update_user(identity, user_id, data)
