@@ -21,9 +21,6 @@ def create_account(data):
     if not email or not password:
         return {"error": "Email and password are required."}, 400
     
-    if not department:
-        return {"error": "Department is required"}, 400
-    
     # Ensure that the email provided is not in use.
     existing_user = User.query.filter_by(email=email).first()
     if existing_user and not existing_user.is_deleted:
