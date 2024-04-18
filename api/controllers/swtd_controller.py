@@ -1,28 +1,33 @@
-from flask import jsonify, request
+from flask import jsonify, Blueprint, request
 from app import app
-from swtd_service import SWTDService
+from swtd_service import create_entry, get_entry, update_entry, delete_entry
+from base_controller import build_response
 
-@app.route('/form', methods=['POST'])
-def create_entry():
+swtd_bp = Blueprint('swtd', __name__, url_prefix='/form')
+
+@swtd_bp.route('/create', methods=['POST'])
+def create_form_entry():
     data = request.json
-    new_entry = SWTDService.create_entry(**data)
-    return jsonify(new_entry), 201
+    response, code = create_entry(**data)
+    return build_response(response, code)
 
-@app.route('/form/<int:entry_id>', methods=['GET'])
-def get_entry(entry_id):
-    entry = SWTDService.get_entry(entry_id)
+@swtd_bp.route('/<int:entry_id>', methods=['GET'])
+def get_form_entry(entry_id):
+    entry = get_entry(entry_id)
     if entry:
         return jsonify(entry)
     else:
-        return jsonify({'message': 'Entry not found'}), 404
+        return jsonify({'error': 'Entry not found'}), 404
 
-@app.route('/form/<int:entry_id>', methods=['PUT'])
-def update_entry(entry_id):
+@swtd_bp.route('/<int:entry_id>', methods=['PUT'])
+def update_form_entry(entry_id):
     data = request.json
-    updated_entry = SWTDService.update_entry(entry_id, **data)
-    return jsonify(updated_entry)
+    response, code = update_entry(entry_id, **data)
+    return build_response(response, code)
 
-@app.route('/form/<int:entry_id>', methods=['DELETE'])
-def delete_entry(entry_id):
-    SWTDService.delete_entry(entry_id)
-    return '', 204
+@swtd_bp.route('/<int:entry_id>', methods=['DELETE'])
+def delete_form_entry(entry_id):
+    response, code = delete_entry(entry_id)
+    return build_response(response, code)
+
+app.register_blueprint(swtd_bp)
