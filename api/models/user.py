@@ -9,7 +9,7 @@ class User(db.Model):
     firstname = db.Column(db.String(255), nullable=True)
     lastname = db.Column(db.String(255), nullable=True)
     password = db.Column(db.String(255), nullable=False)
-    department = db.Column(db.String(255))
+    department = db.Column(db.String(255), nullable=True)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_staff = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
