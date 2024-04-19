@@ -55,13 +55,14 @@ def authorize():
     
     email = response.get('mail')
     employee_id, *firstname = response.get('givenName').split(' ')
+    print(employee_id, firstname)
     lastname = response.get('surname')
     password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
 
     data = {
         'employee_id': employee_id,
         'email': email,
-        'firstname': firstname,
+        'firstname': ''.join([name + ' ' for name in firstname]).strip(),
         'lastname': lastname,
         'password': password
     }
