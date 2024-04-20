@@ -10,7 +10,14 @@ user_bp = Blueprint('users', __name__, url_prefix='/users')
 @jwt_required()
 def get_all_users():
     identity = jwt_service.get_identity_from_token()
-    response, code = user_service.get_all_users(identity)
+    params = request.args
+
+    if 'email' in params:
+        user, code = user_service.get_user(identity, email=params.get('email'))
+        response = [user]
+    else:
+        response, code = user_service.get_all_users(identity, params=params)
+
     return build_response(response, code)
 
 @user_bp.route('/<user_id>', methods=['GET', 'PUT', 'DELETE'])
@@ -19,7 +26,7 @@ def process_user(user_id):
     identity = jwt_service.get_identity_from_token()
 
     if request.method == 'GET':
-        response, code = user_service.get_user(identity, user_id=user_id)
+        response, code = user_service.get_user(identity, id=user_id)
     elif request.method == 'PUT':
         data = request.json
         response, code = user_service.update_user(identity, user_id, data)

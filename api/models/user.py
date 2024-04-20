@@ -13,9 +13,7 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_staff = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
-
-    def __repr__(self):
-        return self.email
+    is_superuser = db.Column(db.Boolean, nullable=False, default=False)
 
     def to_dict(self):
         return {
@@ -29,5 +27,6 @@ class User(db.Model):
             "is_staff": self.is_staff,
             "is_admin": self.is_admin,
             "is_staff": self.is_staff,
-            "is_deleted": self.is_deleted
+            "is_deleted": self.is_deleted,
+            "is_superuser": self.is_superuser
         }
