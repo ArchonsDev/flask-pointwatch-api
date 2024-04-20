@@ -1,22 +1,34 @@
-from models import FormEntry
-from app import db
+from flask import current_app
 
-def create_entry(title, venue, category, role, date, time_started, time_finished, points):
-    if any(field is None for field in [title, venue, category, role, date, time_started, time_finished, points]):
-        return {'error': "All fields must be filled in."}, 400
+from ..models.form import Form
+from ..models import db
 
-    new_entry = FormEntry(
+def create_entry(data):
+
+    title = data.get('title'),
+    venue = data.get('venue'),
+    category = data.get('venue'),
+    role = data.get('role'),
+    date = data.get('date'),
+    time_started = data.get('time_started'),
+    time_finished = data.get('time_started'),
+    points = data.get('points')
+
+
+    form = Form(
         title=title,
         venue=venue,
-        category=category,
+        category = category,
         role=role,
         date=date,
         time_started=time_started,
         time_finished=time_finished,
-        points=points
-    )
+        points = points
 
-    db.session.add(new_entry)
+    )
+    
+
+    db.session.add(form)
     db.session.commit()
 
     return {'message': "Form entry created successfully."}, 201
