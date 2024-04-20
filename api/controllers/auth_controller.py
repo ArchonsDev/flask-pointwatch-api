@@ -1,6 +1,6 @@
 import random
 import string
-from flask import Blueprint, request, url_for
+from flask import Blueprint, request, url_for, redirect
 
 from .base_controller import build_response
 from ..services import auth_service, oauth, oauth_service, user_service, jwt_service
@@ -73,8 +73,10 @@ def authorize():
         response, code = auth_service.create_account(data)
 
         if code == 200:
-            return build_response({"access_token": jwt_service.generate_token(data.get('email'))}, 200)
+            token = jwt_service.generate_token(data.get('email'))
+            return redirect(f'http://localhost:3000/authorized?token={token}')
         else:
             return build_response({"error": "Could not create account."}, 500)
     else:
-        return build_response({"access_token": jwt_service.generate_token(data.get('email'))}, 200)
+        token = jwt_service.generate_token(data.get('email'))
+        return redirect(f'http://localhost:3000/authorized?token={token}')
