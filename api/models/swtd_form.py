@@ -18,14 +18,15 @@ class SWTDForm(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "author": self.author_id,
+            "author_id": self.author_id,
             "title": self.title,
             "venue": self.venue,
             "category": self.category,
             "role": self.role,
-            "date": self.date.strftime('%Y-%m-%d'),  # Convert date to string
-            "time_started":  self.time_started.strftime('%H:%M:%S'),  # Convert time to string
-            "time_finished": self.time_finished.strftime('%H:%M:%S'),  # Convert time to string
+            "date": self.date.strftime('%m-%d-%Y'),  # Convert date to string
+            "time_started":  self.time_started.strftime('%H:%M'),  # Convert time to string
+            "time_finished": self.time_finished.strftime('%H:%M'),  # Convert time to string
+            "points": self.points,
             "benefits": self.benefits,
             "is_deleted": self.is_deleted,
         }
