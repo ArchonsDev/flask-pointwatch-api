@@ -1,31 +1,39 @@
-from flask import jsonify, Blueprint, request
+from flask import Blueprint, request
+from flask_jwt_extended import jwt_required
+
 from .base_controller import build_response
-from ..services import swtd_service
+from ..services import swtd_service, jwt_service
 
-swtd_bp = Blueprint('swtd', __name__, url_prefix='/form')
+swtd_bp = Blueprint('swtd', __name__, url_prefix='/swtds')
 
-@swtd_bp.route('/create', methods=['POST'])
-def create_form_entry():
-    data = request.json
-    response, code = swtd_service.create_entry(data)
+@swtd_bp.route('/', methods=['GET', 'POST'])
+@jwt_required()
+def index():
+    identity = jwt_service.get_identity_from_token()
+    response = None
+    code = 0
+
+    if request.method == 'GET':
+        params = request.args
+        response, code = swtd_service.get_all_swtds(identity, params)
+    elif request.method == 'POST':
+        data = request.json
+        response, code = swtd_service.create_swtd(identity, data)
+
     return build_response(response, code)
 
-@swtd_bp.route('/<int:entry_id>', methods=['GET'])
-def get_form_entry(entry_id):
-    entry = get_entry(entry_id)
-    if entry:
-        return jsonify(entry)
-    else:
-        return jsonify({'error': 'Entry not found'}), 404
+@swtd_bp.route('/<int:form_id>', methods=['GET', 'PUT', 'DELETE'])
+def process_swtd(form_id):
+    identity = jwt_service.get_identity_from_token()
+    response = None
+    code = 0
 
-@swtd_bp.route('/<int:entry_id>', methods=['PUT'])
-def update_form_entry(entry_id):
-    data = request.json
-    response, code = update_entry(entry_id, **data)
+    if request.method == 'GET':
+        response, code = swtd_service.get_swtd(identity, form_id)
+    elif request.method == 'PUT':
+        data = request.json
+        response, code = swtd_service.update_swtd(identity, form_id, data)
+    elif request.method == 'DELETE':
+        response, code = swtd_service.delete_swtd(identity, form_id)
+
     return build_response(response, code)
-
-@swtd_bp.route('/<int:entry_id>', methods=['DELETE'])
-def delete_form_entry(entry_id):
-    response, code = delete_entry(entry_id)
-    return build_response(response, code)
-
