@@ -6,16 +6,15 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.String(255), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    firstname = db.Column(db.String(255), nullable=True)
-    lastname = db.Column(db.String(255), nullable=True)
+    firstname = db.Column(db.String(255), nullable=False)
+    lastname = db.Column(db.String(255), nullable=False)
     password = db.Column(db.String(255), nullable=False)
     department = db.Column(db.String(255), nullable=True)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_staff = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
-
-    def __repr__(self):
-        return self.email
+    is_superuser = db.Column(db.Boolean, nullable=False, default=False)
+    forms = db.relationship('SWTDForm', backref='user', lazy=True)
 
     def to_dict(self):
         return {
@@ -28,5 +27,7 @@ class User(db.Model):
             "department": self.department,
             "is_staff": self.is_staff,
             "is_admin": self.is_admin,
-            "is_deleted": self.is_deleted
+            "is_staff": self.is_staff,
+            "is_deleted": self.is_deleted,
+            "is_superuser": self.is_superuser
         }
