@@ -14,6 +14,7 @@ class User(db.Model):
     is_staff = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     is_superuser = db.Column(db.Boolean, nullable=False, default=False)
+    forms = db.relationship('SWTDForm', backref='user', lazy=True)
 
     def to_dict(self):
         return {
