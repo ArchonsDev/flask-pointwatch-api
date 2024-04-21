@@ -23,6 +23,7 @@ def index():
     return build_response(response, code)
 
 @swtd_bp.route('/<int:form_id>', methods=['GET', 'PUT', 'DELETE'])
+@jwt_required()
 def process_swtd(form_id):
     identity = jwt_service.get_identity_from_token()
     response = None
