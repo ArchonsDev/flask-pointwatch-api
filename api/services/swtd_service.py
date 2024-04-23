@@ -3,49 +3,26 @@ from sqlalchemy.exc import IntegrityError
 
 from ..models import db
 from ..models.swtd_form import SWTDForm
-from ..models.user import User
 
-def get_all_swtds(identity, params=None):
-    requester = User.query.filter_by(email=identity).first()
-    author_id = params.get('author_id')
-
-    if author_id:
-        author_id = int(author_id)
-
-    # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
-    if (author_id is not None and
-            requester.id != author_id and not (
-                requester.is_staff or requester.is_admin or requester.is_superuser
-            )
-    ) or (
-        author_id is None and not (
-            requester.is_staff or requester.is_admin or requester.is_superuser
-        )
-    ):
-        return {"error": "Insufficient permissions. Cannot retrieve SWTD Forms."}, 403
-
+def get_all_swtds(params=None):
     swtd_query = SWTDForm.query
 
-    if not params:
-        swtd_forms = swtd_query.filter_by(is_deleted=False).all()
-    else:
-        try:
-            for key, value in params.items():
-                if not hasattr(SWTDForm, key):
-                    return {'error': f'Invalid parameter: {key}'}, 400
-                
-                swtd_query = swtd_query.filter(getattr(SWTDForm, key).like(f'%{value}'))
+    try:
+        for key, value in params.items():
+            if key == 'is_deleted':
+                continue
+
+            if not hasattr(SWTDForm, key):
+                return f'Invalid parameter: {key}', 400
             
-            swtd_forms = swtd_query.all()
-        except AttributeError:
-            return {'error': 'One or more query parameters are invalid.'}, 400
+            swtd_query = swtd_query.filter(getattr(SWTDForm, key).like(f'%{value}'))
         
-    return {"swtd_forms": [swtd_form.to_dict() for swtd_form in swtd_forms]}, 200
+        return swtd_query.all(), 200
+    except AttributeError:
+        return 'One or more query parameters are invalid.', 400
 
-def create_swtd(identity, data):
-    requester = User.query.filter_by(email=identity).first()
-
-    author_id = requester.id
+def create_swtd(data):
+    author_id = data.get('author_id')
     title = data.get('title')
     venue = data.get('venue')
     category = data.get('category')
@@ -81,35 +58,24 @@ def create_swtd(identity, data):
     try:
         db.session.commit()
     except IntegrityError:
-        return {'error': 'One or more required fields are missing'}, 400
+        return 'One or more required fields are missing', 400
 
-    return {'message': 'SWTD form submitted.'}, 200
+    return swtd_form, 200
 
-def get_swtd(identity, id):
-    requester = User.query.filter_by(email=identity).first()
+def get_swtd(id):
     swtd_form = SWTDForm.query.get(id)
 
     if not swtd_form:
-        return {'error': "SWTD form not found."}, 404
-    
-    if swtd_form.is_deleted:
-        return {'error': "SWTD form not found."}, 404
+        return "SWTD form not found.", 404
 
-    if swtd_form.author_id != requester.id and not (requester.is_staff or requester.is_admin or requester.is_superuser):
-        return {'error': "Insufficient permissions. Cannot retrive SWTD Form data."}, 403
-    
-    return {'swtd_form': swtd_form.to_dict()}, 200
+    return swtd_form, 200
 
-def update_swtd(identity, id, data):
-    requester = User.query.filter_by(email=identity).first()
+def update_swtd(id, data):
     swtd_form = SWTDForm.query.get(id)
 
     if not swtd_form:
         return {'error': 'SWTD form not found.'}, 404
-    
-    if swtd_form.author_id != requester.id and not (requester.is_staff or requester.is_admin or requester.is_superuser):
-        return {'error': 'Insufficient permissions. Cannot update SWTD Form.'}, 400
-
+  
     if 'title' in data:
         swtd_form.title = data.get('title')
     if 'venue' in data:
@@ -133,7 +99,7 @@ def update_swtd(identity, id, data):
             time_finished = datetime.strptime(time_finished_str, '%H:%M').time() if time_finished_str else None
             swtd_form.time_finished = time_finished
     except Exception:
-        return {'error': 'Incorrect time or date format.'}, 400
+        return 'Incorrect time or date format.', 400
     
     if 'points' in data:
         swtd_form.points = data.get('points')
@@ -143,19 +109,15 @@ def update_swtd(identity, id, data):
     try:
         db.session.commit()
     except IntegrityError:
-        return {'error': 'One or more required fields are missing'}, 400
+        return 'One or more required fields are missing', 400
 
-    return {'message': 'SWTD form updated.'}, 200
+    return swtd_form, 200
 
-def delete_swtd(identity, id):
-    requester = User.query.filter_by(email=identity).first()
+def delete_swtd(id):
     swtd_form = SWTDForm.query.get(id)
 
     if not swtd_form:
         return {'error': 'SWTD form not found.'}, 404
-    
-    if swtd_form.author_id != requester.id and not (requester.is_staff or requester.is_admin or requester.is_superuser):
-        return {'error': 'Insufficient permissions. Cannot update SWTD Form.'}, 400
 
     if swtd_form.is_deleted:
         return {'error': 'SWTD form already deleted.'}, 404

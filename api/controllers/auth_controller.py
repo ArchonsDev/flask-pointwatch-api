@@ -3,22 +3,25 @@ import string
 from flask import Blueprint, request, url_for, redirect
 
 from .base_controller import build_response
-from ..services import auth_service, oauth, oauth_service, user_service, jwt_service, password_encoder_service
+from ..services import auth_service, ms_service, oauth, user_service, jwt_service, password_encoder_service
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.json
+    user, code = user_service.create_user(data)
 
-    response, code = auth_service.create_account(data)
+    response = {
+        "user": user.to_dict(),
+        "access_token": jwt_service.generate_token(user.email)
+    }
     
     return build_response(response, code)
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.json
-
     response, code = auth_service.login(data)
 
     return build_response(response, code)
@@ -26,7 +29,6 @@ def login():
 @auth_bp.route('/recovery', methods=['POST'])
 def recover_account():
     data = request.json
-
     response, code = auth_service.recover_account(data)
 
     return build_response(response, code)
@@ -36,7 +38,7 @@ def reset_password():
     token = request.args.get('token')
     data = request.json
     
-    response, code = auth_service.reset_password(token, data)
+    response, code = auth_service.reset_password(token, data.get('password'))
 
     return build_response(response, code)
 
@@ -47,8 +49,10 @@ def microsoft():
 @auth_bp.route('/authorize')
 def authorize():
     token = oauth.microsoft.authorize_access_token()
+    print(token)
 
-    response, code = oauth_service.get_user_data(token)
+    response, code = ms_service.get_user_data(token)
+    print(response)
 
     if not code == 200:
         return build_response(response), code
