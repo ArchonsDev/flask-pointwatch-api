@@ -1,9 +1,7 @@
-import requests
+from . import oauth
 
 def get_user_data(token):
-    response = requests.get('https://graph.microsoft.com/v1.0/me', headers={
-        'Authorization': f'Bearer {token.get("access_token")}'
-    })
+    response = oauth.microsoft.get('https://graph.microsoft.com/v1.0/me', token=token)
 
     if not response.status_code == 200:
         return {'error': "Failed to retrieve user data."}, 500
