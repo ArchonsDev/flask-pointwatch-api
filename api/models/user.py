@@ -15,6 +15,7 @@ class User(db.Model):
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     is_superuser = db.Column(db.Boolean, nullable=False, default=False)
     forms = db.relationship('SWTDForm', backref='user', lazy=True)
+    ms_token = db.Column(db.String(1000), nullable=True)
 
     def to_dict(self):
         return {
@@ -27,7 +28,6 @@ class User(db.Model):
             "department": self.department,
             "is_staff": self.is_staff,
             "is_admin": self.is_admin,
-            "is_staff": self.is_staff,
-            "is_deleted": self.is_deleted,
-            "is_superuser": self.is_superuser
+            "is_superuser": self.is_superuser,
+            "is_deleted": self.is_deleted
         }

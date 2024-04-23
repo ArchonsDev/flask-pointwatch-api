@@ -11,7 +11,6 @@ def create_account(data):
     firstname = data.get('firstname')
     lastname = data.get('lastname')
     password = password_encoder_service.encode_password(data.get('password'))
-    department = data.get('department')
 
     # Ensure that the Employee ID is present.
     if not employee_id:
@@ -25,10 +24,6 @@ def create_account(data):
     if not firstname and not lastname:
         return "Firstname and Lastname are required.", 400
     
-    # Ensure that the department field is present.
-    if not department:
-        return "Department is required.", 400
-    
     # Ensure that the email provided is not in use.
     existing_user = User.query.filter_by(email=email).first()
     if existing_user and not existing_user.is_deleted:
@@ -40,7 +35,8 @@ def create_account(data):
         firstname=firstname,
         lastname=lastname,
         password=password,
-        department=department
+        department=data.get('department') if 'department' in data else None,
+        ms_token=data.get('ms_token') if 'ms_token' in data else None
     )
     
     db.session.add(user)

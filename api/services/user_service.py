@@ -3,18 +3,16 @@ from ..services import password_encoder_service
 from ..models import db
 from ..models.user import User
 
-def get_user(identity, id=None, email=None, employee_id=None):
+def get_user(identity, key, value):
     requester = User.query.filter_by(email=identity).first()
     
     existing_user = None
     user_query = User.query
 
-    if email:
-        existing_user = user_query.filter_by(email=email).first()
-    elif employee_id:
-        existing_user = user_query.filter_by(employee_id=employee_id).first()
-    else:
-        existing_user = user_query.get(id)
+    if not hasattr(User, key):
+        return {'error': f'Cannot retrieve user from given attribute: {key}'}, 400
+
+    existing_user = user_query.filter(getattr(User, key) == value).first()
     
     # Ensure that the user exists.
     if not existing_user:
@@ -86,6 +84,9 @@ def update_user(identity, id, data):
             return {"error": "Inusfficient permissions. Cannot change account deletion status."}, 403
         
         user.is_deleted = data.get('is_deleted')
+
+    if 'ms_token' in data:
+        user.ms_token = data.get('ms_token')
 
     db.session.commit()
     return {"message": "Account updated."}, 200
