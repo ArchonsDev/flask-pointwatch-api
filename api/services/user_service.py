@@ -118,7 +118,7 @@ def update_user(id, data):
     if 'is_superuser' in data:
         user.is_suepruser = data.get('is_superuser')
     if 'is_ms_linked' in data:
-        user.is_mis_linked = data.get('is_ms_linked')
+        user.is_ms_linked = data.get('is_ms_linked')
     if 'is_deleted' in data:
         user.is_deleted = data.get('is_deleted')
 

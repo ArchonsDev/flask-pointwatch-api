@@ -15,7 +15,8 @@ class User(db.Model):
     is_superuser = db.Column(db.Boolean, nullable=False, default=False)
     is_ms_linked = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
-    forms = db.relationship('SWTDForm', backref='user', lazy=True)
+    swtd_forms = db.relationship('SWTDForm', backref='author', lazy=True)
+    ms_user = db.relationship('MSUser', backref='user', lazy=True, uselist=False)
 
     def to_dict(self):
         return {

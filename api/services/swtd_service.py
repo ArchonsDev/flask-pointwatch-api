@@ -74,7 +74,7 @@ def update_swtd(id, data):
     swtd_form = SWTDForm.query.get(id)
 
     if not swtd_form:
-        return {'error': 'SWTD form not found.'}, 404
+        return 'SWTD form not found.', 404
   
     if 'title' in data:
         swtd_form.title = data.get('title')
@@ -117,10 +117,10 @@ def delete_swtd(id):
     swtd_form = SWTDForm.query.get(id)
 
     if not swtd_form:
-        return {'error': 'SWTD form not found.'}, 404
+        return 'SWTD form not found.', 404
 
     if swtd_form.is_deleted:
-        return {'error': 'SWTD form already deleted.'}, 404
+        return 'SWTD form already deleted.', 404
     
     swtd_form.is_deleted = True
 
