@@ -1,6 +1,6 @@
 import random
 import string
-from flask import Blueprint, request, url_for, redirect
+from flask import Blueprint, request, url_for, redirect, session
 
 from .base_controller import build_response
 from ..services import auth_service, ms_service, oauth, user_service, jwt_service, password_encoder_service
@@ -48,32 +48,43 @@ def microsoft():
 
 @auth_bp.route('/authorize')
 def authorize():
-    token = oauth.microsoft.authorize_access_token()
-    print(token)
+    session['ms_token'] = oauth.microsoft.authorize_access_token()
+    response, code = ms_service.get_user_data()
 
-    response, code = ms_service.get_user_data(token)
-    print(response)
-
-    if not code == 200:
-        return build_response(response), code
+    # Ensure that the Microsoft Account Data is present.
+    if code != 200:
+        return redirect(f'http://localhost:3000/internalerror')
     
-    employee_id, *firstname = response.get('givenName').split(' ')
     data = {
-        'employee_id': employee_id,
+        'employee_id': response.get('jobTitle'),
         'email': response.get('mail'),
-        'firstname': ''.join([name + ' ' for name in firstname]).strip(),
+        'firstname': response.get('givenName'),
         'lastname': response.get('surname'),
         'password': password_encoder_service.encode_password(''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8)))
     }
+    
+    user, code = user_service.get_user('email', data.get('email'))
 
-    response, code = user_service.get_user(data.get('email'), 'email', data.get('email'))
-
+    # Ensuere that a local account exists for the user.
     if code != 200:
-        response, code = auth_service.create_account(data)
-        if code != 200:
-            return build_response({"error": "Could not create account."}, 500)
+        user, code = user_service.create_account(data)
 
-    response, code = user_service.get_user(data.get('email'), 'email', data.get('email'))
-    token = jwt_service.generate_token(data.get('email'))
-    user_service.update_user(response.get('email'), response.get('id'), {'ms_token': token})
+        if code != 200:
+            return redirect(f'http://localhost:3000/internalerror')
+        
+    # Ensure that the user has a linked MS Account
+    if not user.is_ms_linked:
+        ms_data = {
+            'id': response.get('id'),
+            'user_id': user.id
+        }
+
+        ms_user, code = ms_service.create_ms_user(ms_data)
+        
+        if code != 200:
+            return redirect(f'http://localhost:3000/internalerror')
+        
+        user_service.update_user(user.id, {'is_ms_linked': True})
+
+    token = jwt_service.generate_token(user.email)
     return redirect(f'http://localhost:3000/authorized?token={token}')

@@ -2,7 +2,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
 
 from .base_controller import build_response
-from ..services import jwt_service, user_service, auth_service
+from ..services import jwt_service, user_service, auth_service, ms_service
 
 user_bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -67,3 +67,16 @@ def process_user(user_id):
         response, code = user_service.delete_user(user_id)
 
     return build_response(response, code)
+
+@user_bp.route('/<int:user_id>/avatar', methods=['GET'])
+@jwt_required()
+def get_avatar(user_id):
+    user, code = user_service.get_user('id', user_id)
+
+    if code != 200:
+        return "Avatar not found.", 404
+
+    if not user.is_ms_linked:
+        return "User does not have a linked MS account.", 400
+
+    return ms_service.get_user_avatar(user.email)

@@ -2,6 +2,7 @@ from . import db
 
 class SWTDForm(db.Model):
     __tablename__ = 'tblswtdforms'
+    
     id = db.Column(db.Integer, primary_key=True)
     author_id = db.Column(db.Integer, db.ForeignKey('tblusers.id'), nullable=False)
     title = db.Column(db.String(255), nullable=False)
