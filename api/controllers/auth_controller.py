@@ -4,7 +4,7 @@ from flask import Blueprint, request, url_for, redirect, session
 from flask_jwt_extended import jwt_required
 
 from .base_controller import build_response, check_fields
-from ..exceptions import DuplicateValueError, UserNotFoundError
+from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
 from ..services import auth_service, ms_service, oauth, user_service, jwt_service, password_encoder_service, mail_service
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -65,7 +65,13 @@ def login():
     if not user:
         raise UserNotFoundError()
     
+    if user.is_deleted:
+        raise AccountUnavailableError()
+    
     token = auth_service.login(user, data.get('password'))
+    # Ensure that the token exists.
+    if not token:
+        raise AuthenticationError()
 
     response = {
         "access_token": token,

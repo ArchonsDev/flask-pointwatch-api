@@ -2,6 +2,10 @@ from .exceptions import *
 from .controllers.base_controller import build_response
 
 def handle_exception(e):
+    if isinstance(e, AccountUnavailableError):
+        return build_response("Account unavailable.", 403)
+    if isinstance(e, AuthenticationError):
+        return build_response("Unauthorized user.", 401)
     if isinstance(e, DuplicateValueError):
         return build_response(f"'{e.name}' already exists.", 409)
     elif isinstance(e, InvalidDateTimeFormat):

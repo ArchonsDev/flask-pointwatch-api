@@ -1,3 +1,8 @@
+class AccountUnavailableError(Exception):
+    pass
+
+class AuthenticationError(Exception):
+    pass
 class DuplicateValueError(Exception):
     def __init__(self, name):
         super().__init__()
