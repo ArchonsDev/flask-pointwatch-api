@@ -6,42 +6,35 @@ from . import oauth, user_service
 from ..models import db
 from ..models.ms_user import MSUser
 
-def requires_ms_token(func):
-    def wrapper(*args, **kwrgs):
-        if not session.get('ms_token'):
-            return "Access token is missing.", 403
-        
-        return func(*args, **kwrgs)
-    return wrapper
+def get_user_data(ms_token):
+    url = 'https://graph.microsoft.com/v1.0/me'
+    user_data = None
 
-@requires_ms_token
-def get_user_data():  
-    response = oauth.microsoft.get('https://graph.microsoft.com/v1.0/me', token=session.get('ms_token'))
+    response = oauth.microsoft.get(url, token=ms_token)
 
-    if not response.status_code == 200:
-        return {'error': "Failed to retrieve user data."}, 500
-    
-    user_info = response.json()
+    if response.status_code == 200:
+        user_data = response.json()
 
-    return user_info, 200
+    return user_data
 
-@requires_ms_token
-def get_user_avatar(email):
-    response = oauth.microsoft.get(f'https://graph.microsoft.com/v1.0/users/{email}/photo/$value', token=session.get('ms_token'))
-    return response.json(), response.status
+def get_user_avatar(email, ms_token):
+    url = f'https://graph.microsoft.com/v1.0/users/{email}/photo/$value'
 
-@requires_ms_token
-def create_ms_user(data):
+    response = oauth.microsoft.get(url.format(email=email), token=ms_token)
+
+    if response.status_code == 200:
+        return response.content
+
+    return None
+
+def create_ms_user(id, user_id, access_token):
     ms_user = MSUser(
-        id=data.get('id'),
-        user_id=data.get('user_id')
+        id=id,
+        user_id=user_id,
+        access_token=access_token
     )
 
     db.session.add(ms_user)
-
-    try:
-        db.session.commit()
-    except IntegrityError:
-        return "Failed to link microsoft user account.", 409
+    db.session.commit()
     
-    return ms_user, 200
+    return ms_user

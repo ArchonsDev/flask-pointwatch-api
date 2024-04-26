@@ -13,7 +13,6 @@ class User(db.Model):
     is_staff = db.Column(db.Boolean, nullable=False, default=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_superuser = db.Column(db.Boolean, nullable=False, default=False)
-    is_ms_linked = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     swtd_forms = db.relationship('SWTDForm', backref='author', lazy=True)
     ms_user = db.relationship('MSUser', backref='user', lazy=True, uselist=False)
@@ -30,6 +29,6 @@ class User(db.Model):
             "is_staff": self.is_staff,
             "is_admin": self.is_admin,
             "is_superuser": self.is_superuser,
-            "is_ms_linked": self.is_ms_linked,
+            "is_ms_linked": self.ms_user is not None,
             "is_deleted": self.is_deleted
         }

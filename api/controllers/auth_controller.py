@@ -124,43 +124,36 @@ def microsoft():
 
 @auth_bp.route('/authorize')
 def authorize():
-    session['ms_token'] = oauth.microsoft.authorize_access_token()
-    response, code = ms_service.get_user_data()
+    on_fail_redirect_url = 'http://localhost:3000/internalerror' # TODO: Change to actual frontend URL
+    on_succ_redirect_url = 'http://localhost:3000/authorized?token={token}'
 
+    ms_token = oauth.microsoft.authorize_access_token()
+    user_data = ms_service.get_user_data(ms_token)
     # Ensure that the Microsoft Account Data is present.
-    if code != 200:
-        return redirect(f'http://localhost:3000/internalerror')
+    if not user_data:
+        return redirect(on_fail_redirect_url)
     
-    data = {
-        'employee_id': response.get('jobTitle'),
-        'email': response.get('mail'),
-        'firstname': response.get('givenName'),
-        'lastname': response.get('surname'),
-        'password': password_encoder_service.encode_password(''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8)))
-    }
+    employee_id = user_data.get('jobTitle')
+    email = user_data.get('mail')
+    firstname = user_data.get('givenName')
+    lastname = user_data.get('surname')
+    password = password_encoder_service.encode_password(''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8)))
+
+    user = user_service.get_user(email=email)
+    # Create a local account if not yet registered.
+    if not user:
+        user = user_service.create_user(employee_id, email, firstname, lastname, password)
+    # Ensure that a local account has been created.
+    if not user:
+        return redirect(on_fail_redirect_url)
     
-    user, code = user_service.get_user('email', data.get('email'))
-
-    # Ensuere that a local account exists for the user.
-    if code != 200:
-        user, code = user_service.create_account(data)
-
-        if code != 200:
-            return redirect(f'http://localhost:3000/internalerror')
-        
     # Ensure that the user has a linked MS Account
-    if not user.is_ms_linked:
-        ms_data = {
-            'id': response.get('id'),
-            'user_id': user.id
-        }
+    if not user.ms_user:
+        id = user_data.get('id')
+        user_id = user.id
+        access_token = ms_token
 
-        ms_user, code = ms_service.create_ms_user(ms_data)
-        
-        if code != 200:
-            return redirect(f'http://localhost:3000/internalerror')
-        
-        user_service.update_user(user.id, {'is_ms_linked': True})
+        ms_service.create_ms_user(id, user_id, access_token)
 
     token = jwt_service.generate_token(user.email)
-    return redirect(f'http://localhost:3000/authorized?token={token}')
+    return redirect(on_succ_redirect_url.format(token=token))

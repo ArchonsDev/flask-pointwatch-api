@@ -24,6 +24,9 @@ class MissingRequiredPropertyError(Exception):
         super().__init__()
         self.property = property
 
+class ResourceNotFoundError(Exception):
+    pass
+
 class SWTDFormNotFoundError(Exception):
     pass
 

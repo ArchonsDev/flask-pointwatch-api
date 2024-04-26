@@ -1,8 +1,8 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, Response
 from flask_jwt_extended import jwt_required
 
 from .base_controller import build_response
-from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError
+from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError
 from ..services import jwt_service, user_service, auth_service, ms_service
 
 user_bp = Blueprint('users', __name__, url_prefix='/users')
@@ -69,12 +69,23 @@ def process_user(user_id):
 @user_bp.route('/<int:user_id>/avatar', methods=['GET'])
 @jwt_required()
 def get_avatar(user_id):
-    user, code = user_service.get_user('id', user_id)
-
-    if code != 200:
-        return "Avatar not found.", 404
-
-    if not user.is_ms_linked:
-        return "User does not have a linked MS account.", 400
-
-    return ms_service.get_user_avatar(user.email)
+    email = jwt_service.get_identity_from_token()
+    requester = user_service.get_user(email=email)
+    # Ensure the requester is authorized.
+    if not requester:
+        raise AuthenticationError()
+    # Ensure the target is registered.
+    user = user_service.get_user(id=user_id)
+    if not user:
+        raise UserNotFoundError()
+    # Ensure that both users have MS Accounts linked.
+    if not user.ms_user or not requester.ms_user:
+        raise ResourceNotFoundError()
+    
+    ms_token = requester.ms_user.parse_access_token()
+    avatar = ms_service.get_user_avatar(user.email, ms_token)
+    # Serve the avatar as an object if it exists.
+    if avatar:
+        return Response(avatar, mimetype='image/jpg', status=200)
+    
+    raise ResourceNotFoundError()
