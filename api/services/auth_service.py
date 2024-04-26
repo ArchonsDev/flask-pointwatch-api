@@ -1,4 +1,4 @@
-from . import password_encoder_service, jwt_service, user_service
+from . import password_encoder_service, jwt_service
 from ..models.user import User
 
 def has_permissions(user, permissions=[]):

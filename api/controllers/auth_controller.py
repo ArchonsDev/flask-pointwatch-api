@@ -1,6 +1,6 @@
 import random
 import string
-from flask import Blueprint, request, url_for, redirect, session
+from flask import Blueprint, request, url_for, redirect
 from flask_jwt_extended import jwt_required
 
 from .base_controller import build_response, check_fields
