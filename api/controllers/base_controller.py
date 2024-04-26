@@ -1,7 +1,14 @@
 from flask import jsonify
 
+from ..exceptions import *
+
 def build_response(response, code):
     if code >= 400 and code <= 599:
         return jsonify({"error": response}), code
     
     return jsonify(response), code
+
+def check_fields(data, required_fields):
+    for field in required_fields:
+        if not data.get(field):
+            raise MissingRequiredPropertyError(field)
