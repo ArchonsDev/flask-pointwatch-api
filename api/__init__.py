@@ -3,6 +3,7 @@ from flask_cors import CORS
 
 from oauth_config import OAUTH_CONFIG
 
+from .exception_handler import handle_exception
 from .controllers import blueprints
 from .services import jwt, mail, oauth
 from .models import db, migrate
@@ -37,6 +38,8 @@ def create_app():
             name=provider,
             **config
         )
+
+    app.errorhandler(Exception)(handle_exception)
     
     return app
 

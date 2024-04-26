@@ -1,46 +1,116 @@
 import random
 import string
 from flask import Blueprint, request, url_for, redirect, session
+from flask_jwt_extended import jwt_required
 
-from .base_controller import build_response
-from ..services import auth_service, ms_service, oauth, user_service, jwt_service, password_encoder_service
+from .base_controller import build_response, check_fields
+from ..exceptions import DuplicateValueError, UserNotFoundError
+from ..services import auth_service, ms_service, oauth, user_service, jwt_service, password_encoder_service, mail_service
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.json
-    user, code = user_service.create_user(data)
+    # Define required fields
+    required_fields = [
+        'employee_id',
+        'email',
+        'firstname',
+        'lastname',
+        'password'
+    ]
+    # Ensure the required fields are present.
+    check_fields(data, required_fields)
+    
+    existing_user = user_service.get_user(email=data.get('email'))
+    # Ensure that the email provided is not in use.
+    if existing_user:
+        return DuplicateValueError('email')
+    
+    existing_user = user_service.get_user(employee_id=data.get('employee_id'))
+    # Ensure that the employee ID provided is not in use.
+    if existing_user:
+        return DuplicateValueError('employee_id')
+
+    user = user_service.create_user(
+        data.get('employee_id'),
+        data.get('email'),
+        data.get('firstname'),
+        data.get('lastname'),
+        data.get('password'),
+        department=data.get('department')
+    )
 
     response = {
         "user": user.to_dict(),
         "access_token": jwt_service.generate_token(user.email)
     }
     
-    return build_response(response, code)
+    return build_response(response, 200)
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.json
-    response, code = auth_service.login(data)
+    # Define required fields
+    required_fields = [
+        'email',
+        'password',
+    ]
 
-    return build_response(response, code)
+    check_fields(data, required_fields)
+
+    # Ensure that the user exists.
+    user = user_service.get_user(email=data.get('email'))
+    if not user:
+        raise UserNotFoundError()
+    
+    token = auth_service.login(user, data.get('password'))
+
+    response = {
+        "access_token": token,
+        "user": user.to_dict()
+    }
+
+    return build_response(response, 200)
 
 @auth_bp.route('/recovery', methods=['POST'])
 def recover_account():
     data = request.json
-    response, code = auth_service.recover_account(data)
+    # Define required fields
+    required_fields = [
+        'email',
+    ]
 
-    return build_response(response, code)
+    # Ensure required fields are present.
+    check_fields(data, required_fields)
+    # Check if the email is registered to a user.
+    user = user_service.get_user(email=data.get('email'))
+    if user:
+        mail_service.send_recovery_mail(user.email, user.firstname)
+
+    return build_response({"message": "Please check email for instructions on how to reset your password."}, 200)
 
 @auth_bp.route('/resetpassword', methods=['POST'])
+@jwt_required()
 def reset_password():
-    token = request.args.get('token')
+    email = jwt_service.get_jwt_identity()
     data = request.json
-    
-    response, code = auth_service.reset_password(token, data.get('password'))
+    # Define required fields
+    required_fields = [
+        'password',
+    ]
 
-    return build_response(response, code)
+    # Ensure that the required fields are present.
+    check_fields(data, required_fields)
+
+    user = user_service.get_user(email=email)
+    # Ensure that the user exists.
+    if not user:
+        raise UserNotFoundError()
+    
+    user_service.update_user(user, {'password': data.get('password')})
+    return build_response({"message": "Password changed."}, 200)
 
 @auth_bp.route('/microsoft')
 def microsoft():
