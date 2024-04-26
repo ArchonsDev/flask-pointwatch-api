@@ -28,7 +28,7 @@ def index():
         data = request.json
         required_fields = [
             'author_id',
-            'titile',
+            'title',
             'category',
             'role',
             'date',
