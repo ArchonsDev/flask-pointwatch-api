@@ -41,7 +41,10 @@ def get_all_users(params=None):
         if not hasattr(User, key):
             raise InvalidParameterError(key)
 
-        user_query = user_query.filter(getattr(User, key).like(f'%{value}%'))
+        if type(key) is str:
+            user_query = user_query.filter(getattr(User, key).like(f'%{value}%'))
+        else:
+            user_query = user_query.filter(getattr(User, key) == value)
         
     return user_query.all()
 
