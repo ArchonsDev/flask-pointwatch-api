@@ -1,44 +1,122 @@
 import random
 import string
 from flask import Blueprint, request, url_for, redirect
+from flask_jwt_extended import jwt_required
 
-from .base_controller import build_response
-from ..services import auth_service, oauth, oauth_service, user_service, jwt_service
+from .base_controller import build_response, check_fields
+from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
+from ..services import auth_service, ms_service, oauth, user_service, jwt_service, password_encoder_service, mail_service
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.json
-
-    response, code = auth_service.create_account(data)
+    # Define required fields
+    required_fields = [
+        'employee_id',
+        'email',
+        'firstname',
+        'lastname',
+        'password'
+    ]
+    # Ensure the required fields are present.
+    check_fields(data, required_fields)
     
-    return build_response(response, code)
+    existing_user = user_service.get_user(email=data.get('email'))
+    # Ensure that the email provided is not in use.
+    if existing_user:
+        return DuplicateValueError('email')
+    
+    existing_user = user_service.get_user(employee_id=data.get('employee_id'))
+    # Ensure that the employee ID provided is not in use.
+    if existing_user:
+        return DuplicateValueError('employee_id')
+
+    user = user_service.create_user(
+        data.get('employee_id'),
+        data.get('email'),
+        data.get('firstname'),
+        data.get('lastname'),
+        data.get('password'),
+        department=data.get('department')
+    )
+
+    response = {
+        "user": user.to_dict(),
+        "access_token": jwt_service.generate_token(user.email)
+    }
+    
+    return build_response(response, 200)
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.json
+    # Define required fields
+    required_fields = [
+        'email',
+        'password',
+    ]
 
-    response, code = auth_service.login(data)
+    check_fields(data, required_fields)
 
-    return build_response(response, code)
+    # Ensure that the user exists.
+    user = user_service.get_user(email=data.get('email'))
+    if not user:
+        raise UserNotFoundError()
+    
+    if user.is_deleted:
+        raise AccountUnavailableError()
+    
+    token = auth_service.login(user, data.get('password'))
+    # Ensure that the token exists.
+    if not token:
+        raise AuthenticationError()
+
+    response = {
+        "access_token": token,
+        "user": user.to_dict()
+    }
+
+    return build_response(response, 200)
 
 @auth_bp.route('/recovery', methods=['POST'])
 def recover_account():
     data = request.json
+    # Define required fields
+    required_fields = [
+        'email',
+    ]
 
-    response, code = auth_service.recover_account(data)
+    # Ensure required fields are present.
+    check_fields(data, required_fields)
+    # Check if the email is registered to a user.
+    user = user_service.get_user(email=data.get('email'))
+    if user:
+        mail_service.send_recovery_mail(user.email, user.firstname)
 
-    return build_response(response, code)
+    return build_response({"message": "Please check email for instructions on how to reset your password."}, 200)
 
 @auth_bp.route('/resetpassword', methods=['POST'])
+@jwt_required()
 def reset_password():
-    token = request.args.get('token')
+    email = jwt_service.get_jwt_identity()
     data = request.json
-    
-    response, code = auth_service.reset_password(token, data)
+    # Define required fields
+    required_fields = [
+        'password',
+    ]
 
-    return build_response(response, code)
+    # Ensure that the required fields are present.
+    check_fields(data, required_fields)
+
+    user = user_service.get_user(email=email)
+    # Ensure that the user exists.
+    if not user:
+        raise UserNotFoundError()
+    
+    user_service.update_user(user, {'password': data.get('password')})
+    return build_response({"message": "Password changed."}, 200)
 
 @auth_bp.route('/microsoft')
 def microsoft():
@@ -46,37 +124,36 @@ def microsoft():
 
 @auth_bp.route('/authorize')
 def authorize():
-    token = oauth.microsoft.authorize_access_token()
+    on_fail_redirect_url = 'http://localhost:3000/internalerror' # TODO: Change to actual frontend URL
+    on_succ_redirect_url = 'http://localhost:3000/authorized?token={token}'
 
-    response, code = oauth_service.get_user_data(token)
-
-    if not code == 200:
-        return build_response(response), code
+    ms_token = oauth.microsoft.authorize_access_token()
+    user_data = ms_service.get_user_data(ms_token)
+    # Ensure that the Microsoft Account Data is present.
+    if not user_data:
+        return redirect(on_fail_redirect_url)
     
-    email = response.get('mail')
-    employee_id, *firstname = response.get('givenName').split(' ')
-    print(employee_id, firstname)
-    lastname = response.get('surname')
-    password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
+    employee_id = user_data.get('jobTitle')
+    email = user_data.get('mail')
+    firstname = user_data.get('givenName')
+    lastname = user_data.get('surname')
+    password = password_encoder_service.encode_password(''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8)))
 
-    data = {
-        'employee_id': employee_id,
-        'email': email,
-        'firstname': ''.join([name + ' ' for name in firstname]).strip(),
-        'lastname': lastname,
-        'password': password
-    }
+    user = user_service.get_user(email=email)
+    # Create a local account if not yet registered.
+    if not user:
+        user = user_service.create_user(employee_id, email, firstname, lastname, password)
+    # Ensure that a local account has been created.
+    if not user:
+        return redirect(on_fail_redirect_url)
+    
+    # Ensure that the user has a linked MS Account
+    if not user.ms_user:
+        id = user_data.get('id')
+        user_id = user.id
+        access_token = ms_token
 
-    response, code = user_service.get_user(identity=data.get('email'))
+        ms_service.create_ms_user(id, user_id, access_token)
 
-    if not code == 200:
-        response, code = auth_service.create_account(data)
-
-        if code == 200:
-            token = jwt_service.generate_token(data.get('email'))
-            return redirect(f'http://localhost:3000/authorized?token={token}')
-        else:
-            return build_response({"error": "Could not create account."}, 500)
-    else:
-        token = jwt_service.generate_token(data.get('email'))
-        return redirect(f'http://localhost:3000/authorized?token={token}')
+    token = jwt_service.generate_token(user.email)
+    return redirect(on_succ_redirect_url.format(token=token))
