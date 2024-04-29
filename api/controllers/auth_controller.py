@@ -26,12 +26,12 @@ def register():
     existing_user = user_service.get_user(email=data.get('email'))
     # Ensure that the email provided is not in use.
     if existing_user:
-        return DuplicateValueError('email')
+        raise DuplicateValueError('email')
     
     existing_user = user_service.get_user(employee_id=data.get('employee_id'))
     # Ensure that the employee ID provided is not in use.
     if existing_user:
-        return DuplicateValueError('employee_id')
+        raise DuplicateValueError('employee_id')
 
     user = user_service.create_user(
         data.get('employee_id'),
