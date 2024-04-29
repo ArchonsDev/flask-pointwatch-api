@@ -2,7 +2,7 @@ Hello {username},
 
 We received a request to reset your password. If you didn't make this request, you can ignore this email. Otherwise, you can reset your password by clicking on the following link:
 
-Reset Password: httpp://localhost:3000/reset?token={token}
+Reset Password: http://localhost:3000/reset?token={token}
 
 This link will expire in 24 hours for security reasons.
 
