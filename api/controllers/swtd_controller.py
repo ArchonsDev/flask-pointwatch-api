@@ -16,14 +16,14 @@ def index():
 
     if request.method == 'GET':
         permissions = ['is_staff', 'is_admin', 'is_superuser']
-        params = {"is_deleted": False, **request.args}
+        params = {'is_deleted': False, **request.args}
         author_id = int(params.get('author_id', 0))
         # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
         if requester.id != author_id and not auth_service.has_permissions(requester, permissions):
             raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
-        
-        swtds = [swtd.to_dict() for swtd in swtd_service.get_all_swtds(params=params)]
-        return build_response({"swtds": swtds}, 200)
+
+        swtds =  [swtd.to_dict() for swtd in swtd_service.get_all_swtds(params=params)]
+        return build_response(swtds, 200)
     elif request.method == 'POST':
         data = request.json
         required_fields = [
@@ -43,7 +43,7 @@ def index():
         try:
             data = {
                 **data,
-                'date': datetime.strptime(data.get('date'), '%m-%d-%Y').date(),
+                'date': datetime.strptime(data.get('date'), '%m-%d-%y').date(),
                 'time_started': datetime.strptime(data.get('time_started'), '%H:%M').time(),
                 'time_finished': datetime.strptime(data.get('time_finished'), '%H:%M').time()
             }
@@ -88,16 +88,6 @@ def process_swtd(form_id):
     elif request.method == 'PUT':
         data = request.json
 
-        try:
-            data = {
-                **data,
-                'date': datetime.strptime(data.get('date'), '%m-%d-%Y').date(),
-                'time_started': datetime.strptime(data.get('time_started'), '%H:%M').time(),
-                'time_finished': datetime.strptime(data.get('time_finished'), '%H:%M').time()
-            }
-        except Exception:
-            raise InvalidDateTimeFormat()
-
         if swtd.author_id != requester.id and not auth_service.has_permissions(requester, permissions):
             raise InsufficientPermissionsError("Cannot update SWTD form data.")
         
@@ -108,4 +98,4 @@ def process_swtd(form_id):
             raise InsufficientPermissionsError("Cannot delete SWTD form.")
         
         swtd_service.delete_swtd(swtd)
-        return build_response({"message": "SWTD Form deleted."}, 200)
+        return build_response({"message: SWTD Form deleted."}, 200)

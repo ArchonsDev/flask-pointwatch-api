@@ -64,7 +64,7 @@ def process_user(user_id):
             raise InsufficientPermissionsError("Cannot delete user.")
 
         user_service.delete_user(user)
-        return build_response({"message": "User deleted."}, 200)
+        return build_response("User deleted.", 200)
 
 @user_bp.route('/<int:user_id>/avatar', methods=['GET'])
 @jwt_required()

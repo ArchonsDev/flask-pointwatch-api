@@ -9,10 +9,7 @@ def get_all_swtds(params=None):
         if not hasattr(SWTDForm, key):
             raise InvalidParameterError(key)
         
-        if type(value) is str:
-            swtd_query = swtd_query.filter(getattr(SWTDForm, key).like(f'%{value}%'))
-        else:
-            swtd_query = swtd_query.filter(getattr(SWTDForm, key) == value)
+        swtd_query = swtd_query.filter(getattr(SWTDForm, key).like(f'%{value}'))
     
     return swtd_query.all()
 
