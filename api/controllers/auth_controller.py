@@ -115,7 +115,7 @@ def reset_password():
     if not user:
         raise UserNotFoundError()
     
-    user_service.update_user(user, {'password': data.get('password')})
+    user_service.update_user(user, password=data.get('password'))
     return build_response({"message": "Password changed."}, 200)
 
 @auth_bp.route('/microsoft')
