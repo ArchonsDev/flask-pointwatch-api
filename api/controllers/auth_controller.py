@@ -125,7 +125,7 @@ def microsoft():
 @auth_bp.route('/authorize')
 def authorize():
     on_fail_redirect_url = 'http://localhost:3000/internalerror' # TODO: Change to actual frontend URL
-    on_succ_redirect_url = 'http://localhost:3000/authorized?token={token}'
+    on_succ_redirect_url = 'http://localhost:3000/authorized?token={token}&user={user_id}'
 
     ms_token = oauth.microsoft.authorize_access_token()
     user_data = ms_service.get_user_data(ms_token)
@@ -156,9 +156,5 @@ def authorize():
         ms_service.create_ms_user(id, user_id, access_token)
 
     token = jwt_service.generate_token(user.email)
-    response = {
-        "access_token": token,
-        "user": user.to_dict()
-    }
-
-    return build_response(response, 200)
+    user_id = jwt_service.generate_token(user.id)
+    return redirect(on_succ_redirect_url.format(token=token, user_id=user_id))
