@@ -23,4 +23,4 @@ def handle_exception(e):
     elif isinstance(e, UserNotFoundError):
         return build_response("User not found.", 404)
     else:
-        return build_response(f"An error occurred. {e.args[0]}", 500)
+        return build_response(f"An error occurred.", 500)
