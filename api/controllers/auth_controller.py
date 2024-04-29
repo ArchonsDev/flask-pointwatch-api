@@ -156,4 +156,9 @@ def authorize():
         ms_service.create_ms_user(id, user_id, access_token)
 
     token = jwt_service.generate_token(user.email)
-    return redirect(on_succ_redirect_url.format(token=token))
+    response = {
+        "access_token": token,
+        "user": user.to_dict()
+    }
+
+    return build_response(response, 200)
