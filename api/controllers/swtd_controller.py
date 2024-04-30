@@ -3,8 +3,8 @@ from flask_jwt_extended import jwt_required
 from datetime import datetime
 
 from .base_controller import build_response, check_fields
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError
-from ..services import swtd_service, jwt_service, user_service, auth_service
+from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError
+from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service
 
 swtd_bp = Blueprint('swtd', __name__, url_prefix='/swtds')
 
@@ -40,6 +40,9 @@ def index():
 
         check_fields(data, required_fields)
 
+        if len(request.files) != 1:
+            raise MissingRequiredPropertyError("proof")
+
         try:
             data = {
                 **data,
@@ -62,6 +65,10 @@ def index():
             data.get('points'),
             data.get('benefits')
         )
+
+        file = request.files[0]
+
+        swtd_validation_service.create_validation(swtd, file.filename)
 
         return build_response(swtd.to_dict(), 200)
 
@@ -109,3 +116,7 @@ def process_swtd(form_id):
         
         swtd_service.delete_swtd(swtd)
         return build_response({"message": "SWTD Form deleted."}, 200)
+    
+@swtd_bp.route('/<int:form_id>/proof', methods=["GET"])
+def show_proof(form_id):
+    pass

@@ -15,6 +15,8 @@ class SWTDForm(db.Model):
     points = db.Column(db.Integer, nullable=False)
     benefits = db.Column(db.String(255), nullable=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
+    # Link to SWTDValidation
+    validation = db.relationship('SWTDValidation', backref='form', lazy=True)
 
     def to_dict(self):
         return {
