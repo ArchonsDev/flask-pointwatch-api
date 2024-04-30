@@ -10,7 +10,7 @@ def create_validation(swtd, proof):
         validated_on=datetime.utcnow
     )
 
-    swtd.validation = validation
+    db.session.add(validation)
     db.session.commit()
 
 def update_validation(swtd, user, valid=None):
@@ -28,3 +28,5 @@ def update_validation(swtd, user, valid=None):
         validation.status = "PENDING"
         validation.validator = None
         validation.validated_on = None
+
+    db.session.commit()

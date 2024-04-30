@@ -6,7 +6,7 @@ from datetime import datetime
 
 from .base_controller import build_response, check_fields
 from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError
-from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service
+from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service, swtd_comment_service
 
 swtd_bp = Blueprint('swtd', __name__, url_prefix='/swtds')
 
@@ -118,6 +118,79 @@ def process_swtd(form_id):
         
         swtd_service.delete_swtd(swtd)
         return build_response({"message": "SWTD Form deleted."}, 200)
+    
+@swtd_bp.route('/<int:form_id>/comments')
+@jwt_required()
+def process_comments(form_id):
+    email = jwt_service.get_identity_from_token()
+    requester = user_service.get_user(email=email)
+    permissions = [
+        'is_staff',
+        'is_admin',
+        'is_superuser'
+    ]
+
+    swtd = swtd_service.get_swtd(form_id)
+    if not swtd:
+        raise SWTDFormNotFoundError()
+
+    if request.method == 'GET':
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form comments.")
+        
+        return build_response({"comments": [comment.to_dict() for comment in swtd.comments]}, 200)
+    if request.method == 'POST':
+        data = request.json
+        required_fields = ['message']
+
+        check_fields(data, required_fields)
+
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form comments.")
+        
+        swtd_comment_service.create_comment(swtd, requester, data.get('message'))
+        return build_response({"comments": [comment.to_dict() for comment in swtd.comments]}, 200)
+    
+@swtd_bp.route('/<int:form_id>/comments/<int:comment_id>', methods=['GET', 'PUT', 'DELETE'])
+@jwt_required()
+def handle_swtd(form_id, comment_id):
+    email = jwt_service.get_identity_from_token()
+    requester = user_service.get_user(email=email)
+    swtd = swtd_service.get_swtd(form_id)
+    permissions = [
+        'is_staff',
+        'is_admin',
+        'is_superuser'
+    ]
+
+    if not swtd:
+        raise SWTDFormNotFoundError()
+    
+    comment = filter(lambda comment: comment.id == comment_id, swtd.comments)
+
+    if not comment:
+        # TODO: Create custom exception.
+        pass
+    
+    if request.method == 'GET':
+        if (comment.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form comment.")
+        
+        return build_response(comment.to_dict(), 200)
+    if request.method == 'PUT':
+        data = request.json
+        required_fields = ['message']
+
+        check_fields(data, required_fields)
+
+        swtd_comment_service.update_comment(comment, data.get('message'))
+        return build_response(comment.to_dict(), 200)
+    if request.method == 'DELETE':
+        if (comment.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form comment.")
+        
+        swtd_comment_service.delete_comment(comment)
+        return build_response({"message": "Comment deleted."}, 200)
     
 @swtd_bp.route('/<int:form_id>/validation', methods=["GET", "PUT"])
 @jwt_required()
