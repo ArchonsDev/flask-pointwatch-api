@@ -17,6 +17,8 @@ class SWTDForm(db.Model):
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     # Link to SWTDValidation
     validation = db.relationship('SWTDValidation', backref='form', lazy=True)
+    # Link to SWTDComment
+    comments = db.relationship('SWTDComment', backref='swtd_form', lazy=True)
 
     def to_dict(self):
         return {

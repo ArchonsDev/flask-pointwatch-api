@@ -20,6 +20,8 @@ class User(db.Model):
     ms_user = db.relationship('MSUser', backref='user', lazy=True, uselist=False)
     # Link to SWTDValidation
     validated_forms = db.relationship('SWTDValidation', backref='validator', lazy=True)
+    # Link to SWTDComment
+    comments = db.relationship('SWTDComment', backref='author', lazy=True)
 
     def to_dict(self):
         return {
