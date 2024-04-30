@@ -14,8 +14,12 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_superuser = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
+    # Link to SWTDForm
     swtd_forms = db.relationship('SWTDForm', backref='author', lazy=True)
+    # Link to MSUser
     ms_user = db.relationship('MSUser', backref='user', lazy=True, uselist=False)
+    # Link to SWTDValidation
+    validated_forms = db.relationship('SWTDValidation', backref='validator', lazy=True)
 
     def to_dict(self):
         return {
