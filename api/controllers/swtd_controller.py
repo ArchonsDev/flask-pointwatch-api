@@ -140,7 +140,19 @@ def process_validation(form_id):
         
         return build_response(swtd.validation.to_dict(), 200)
     if request.method == 'PUT':
-        pass
+        if not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
+
+        data = request.args
+        if not 'status' in data:
+            raise MissingRequiredPropertyError('status')
+        
+        if data.get('status') == 'APPROVED':
+            swtd_validation_service.update_validation(swtd, requester, valid=True)
+        elif data.get('status') == 'REJECTED':
+            swtd_validation_service.update_validation(swtd, requester, valid=False)
+
+        return build_response(swtd.validation.to_dict(), 200) # TODO: Verify this is updated.
 
 @swtd_bp.route('/<int:form_id>/validation/proof', methods=['GET'])
 @jwt_required()

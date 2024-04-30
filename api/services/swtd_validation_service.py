@@ -12,3 +12,19 @@ def create_validation(swtd, proof):
 
     swtd.validation = validation
     db.session.commit()
+
+def update_validation(swtd, user, valid=None):
+    validation = swtd.validation
+
+    if valid == True:
+        validation.status = "APPROVED"
+        validation.validator = user
+        validation.validated_on = datetime.now()
+    elif valid == False:
+        validation.status = "REJECTED"
+        validation.validator = user
+        validation.validated_on = datetime.now()
+    else:
+        validation.status = "PENDING"
+        validation.validator = None
+        validation.validated_on = None
