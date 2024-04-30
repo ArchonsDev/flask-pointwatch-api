@@ -1,4 +1,6 @@
-from flask import Blueprint, request
+import os
+
+from flask import Blueprint, request, send_file
 from flask_jwt_extended import jwt_required
 from datetime import datetime
 
@@ -117,6 +119,47 @@ def process_swtd(form_id):
         swtd_service.delete_swtd(swtd)
         return build_response({"message": "SWTD Form deleted."}, 200)
     
-@swtd_bp.route('/<int:form_id>/proof', methods=["GET"])
+@swtd_bp.route('/<int:form_id>/validation', methods=["GET", "PUT"])
+@jwt_required()
+def process_validation(form_id):
+    email = jwt_service.get_identity_from_token()
+    requester = user_service.get_user(email=email)
+    permissions = [
+        'is_staff',
+        'is_admin',
+        'is_superuser'
+    ]
+
+    swtd = swtd_service.get_swtd(form_id)
+    if not swtd:
+        raise SWTDFormNotFoundError()
+
+    if request.method == 'GET':
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
+        
+        return build_response(swtd.validation.to_dict(), 200)
+    if request.method == 'PUT':
+        pass
+
+@swtd_bp.route('/<int:form_id>/validation/proof', methods=['GET'])
+@jwt_required()
 def show_proof(form_id):
-    pass
+    email = jwt_service.get_identity_from_token()
+    requester = user_service.get_user(email=email)
+    permissions = [
+        'is_staff',
+        'is_admin',
+        'is_superuser'
+    ]
+
+    swtd = swtd_service.get_swtd(form_id)
+    if not swtd:
+        raise SWTDFormNotFoundError()
+
+    if request.method == 'GET':
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
+        
+        with open(os.path.join(ft_service.data_dir, swtd.author.id, swtd.id, swtd.validation.proof), 'r') as f:
+            send_file(f)
