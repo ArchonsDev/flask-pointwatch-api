@@ -16,7 +16,7 @@ class SWTDForm(db.Model):
     benefits = db.Column(db.String(255), nullable=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     # Link to SWTDValidation
-    validation = db.relationship('SWTDValidation', backref='form', lazy=True)
+    validation = db.relationship('SWTDValidation', backref='form', uselist=False, lazy=True)
     # Link to SWTDComment
     comments = db.relationship('SWTDComment', backref='swtd_form', lazy=True)
 

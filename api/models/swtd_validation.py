@@ -14,5 +14,5 @@ class SWTDValidation(db.Model):
             "swtd_id": self.swtd_id,
             "status": self.status,
             "validator": self.validator.to_dict() if self.validator else None,
-            "validated on": self.validated_on
+            "validated on": self.validated_on.strftime("%m-%d-%Y %H:%M") if self.validated_on else None
         }
