@@ -138,3 +138,5 @@ migrations/
 # Configuration files
 config.py
 oauth_config.py
+
+data/**
