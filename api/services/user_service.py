@@ -21,15 +21,12 @@ def create_user(employee_id, email, firstname, lastname, password, department=No
 
 def get_user(id=None, email=None, employee_id=None):
     query = User.query
-    user = None
 
     if employee_id:
-        user = query.filter_by(employee_id=employee_id).first()
-        if user: return user
+        return query.filter_by(employee_id=employee_id).first()
 
     if email:
-        user = query.filter_by(email=email).first()
-        if user: return user
+        return query.filter_by(email=email).first()
 
     return query.get(id)
 

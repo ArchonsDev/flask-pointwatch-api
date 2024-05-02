@@ -1,24 +1,24 @@
 import os
+import shutil
 
 data_dir = os.path.abspath('data')
 
-def save(user_id, swtd_id, filename, content):
-    user_fp = os.path.join(data_dir, user_id)
+def save(user_id, swtd_id, file):
+    user_fp = os.path.join(data_dir, str(user_id))
 
     if not os.path.exists(user_fp):
         os.mkdir(user_fp)
 
-    user_swtd_fp = os.path.join(user_fp, swtd_id)
+    user_swtd_fp = os.path.join(user_fp, str(swtd_id))
 
     if not os.path.exists(user_swtd_fp):
         os.mkdir(user_swtd_fp)
 
-    fp = os.path.join(user_swtd_fp, filename)
+    fp = os.path.join(user_swtd_fp, file.filename)
 
-    with open(fp, 'w') as f:
-        f.write(content)
+    file.save(fp)
 
-def delete(user_id, swtd_id, filename):
-    fp = os.path.join(data_dir, user_id, swtd_id, filename)
-    os.remove(fp)
+def delete(user_id, swtd_id):
+    fp = os.path.join(data_dir, str(user_id), str(swtd_id))
+    shutil.rmtree(fp)
     

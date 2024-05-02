@@ -27,11 +27,12 @@ def index():
         swtds = [swtd.to_dict() for swtd in swtd_service.get_all_swtds(params=params)]
         return build_response({"swtds": swtds}, 200)
     elif request.method == 'POST':
-        data = request.json
+        data = request.form
         required_fields = [
             'author_id',
             'title',
             'category',
+            'venue',
             'role',
             'date',
             'time_started',
@@ -68,9 +69,10 @@ def index():
             data.get('benefits')
         )
 
-        file = request.files[0]
+        file = request.files.get('proof')
 
         swtd_validation_service.create_validation(swtd, file.filename)
+        ft_service.save(requester.id, swtd.id, file)
 
         return build_response(swtd.to_dict(), 200)
 
@@ -111,6 +113,7 @@ def process_swtd(form_id):
             raise InsufficientPermissionsError("Cannot update SWTD form data.")
         
         swtd = swtd_service.update_swtd(swtd, **data)
+        swtd_validation_service.update_validation(swtd, requester, valid="PENDING")
         return build_response(swtd.to_dict(), 200)
     elif request.method == 'DELETE':
         if swtd.author_id != requester.id and not auth_service.has_permissions(requester, permissions):
@@ -216,7 +219,7 @@ def process_validation(form_id):
         if not auth_service.has_permissions(requester, permissions):
             raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
 
-        data = request.args
+        data = request.json
         if not 'status' in data:
             raise MissingRequiredPropertyError('status')
         
@@ -224,10 +227,12 @@ def process_validation(form_id):
             swtd_validation_service.update_validation(swtd, requester, valid=True)
         elif data.get('status') == 'REJECTED':
             swtd_validation_service.update_validation(swtd, requester, valid=False)
+        else:
+            raise MissingRequiredPropertyError('status')
 
         return build_response(swtd.validation.to_dict(), 200) # TODO: Verify this is updated.
 
-@swtd_bp.route('/<int:form_id>/validation/proof', methods=['GET'])
+@swtd_bp.route('/<int:form_id>/validation/proof', methods=['GET', 'PUT'])
 @jwt_required()
 def show_proof(form_id):
     email = jwt_service.get_identity_from_token()
@@ -244,7 +249,21 @@ def show_proof(form_id):
 
     if request.method == 'GET':
         if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
-            raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form proof.")
+
+        fp = os.path.join(ft_service.data_dir, str(swtd.author.id), str(swtd.id), swtd.validation.proof)
+        return send_file(fp)
+    if request.method == 'PUT':
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot update SWTD form proof.")
         
-        with open(os.path.join(ft_service.data_dir, swtd.author.id, swtd.id, swtd.validation.proof), 'r') as f:
-            send_file(f)
+        if len(request.files) != 1:
+            raise MissingRequiredPropertyError("proof")
+        
+        file = request.files.get('proof')
+
+        swtd_validation_service.update_proof(swtd, file)
+        ft_service.save(requester.id, swtd.id, file)
+
+        return build_response(swtd.to_dict(), 200)
+    
