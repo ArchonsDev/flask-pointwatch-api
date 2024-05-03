@@ -1,6 +1,6 @@
 import os
 
-from flask import Blueprint, request, send_file
+from flask import Blueprint, request, Response
 from flask_jwt_extended import jwt_required
 from datetime import datetime
 
@@ -255,7 +255,12 @@ def show_proof(form_id):
             raise InsufficientPermissionsError("Cannot retrieve SWTD form proof.")
 
         fp = os.path.join(ft_service.data_dir, str(swtd.author.id), str(swtd.id), swtd.validation.proof)
-        return send_file(fp)
+
+        with open(fp, 'rb') as f:
+            content = f.read()
+            content_type = ft_service.get_file_type(swtd.validation.proof)
+
+        return Response(content, mimetype=content_type, status=200)
     if request.method == 'PUT':
         if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
             raise InsufficientPermissionsError("Cannot update SWTD form proof.")
