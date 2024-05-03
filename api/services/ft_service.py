@@ -21,4 +21,16 @@ def save(user_id, swtd_id, file):
 def delete(user_id, swtd_id):
     fp = os.path.join(data_dir, str(user_id), str(swtd_id))
     shutil.rmtree(fp)
-    
+
+def get_file_type(filename):
+    _, extension = os.path.splitext(filename)
+    if extension.lower() == '.txt':
+        return 'text/plain'
+    elif extension.lower() in ['.jpg', '.jpeg']:
+        return 'image/jpeg'
+    elif extension.lower() == '.png':
+        return 'image/png'
+    elif extension.lower() == '.pdf':
+        return 'application/pdf'
+    else:
+        return 'application/octet-stream'
