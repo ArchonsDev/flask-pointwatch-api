@@ -18,6 +18,8 @@ def handle_exception(e):
         return build_response(f"'{e.property}' is required.", 400)
     elif isinstance(e, ResourceNotFoundError):
         return build_response("The requested resource is not available.", 404)
+    elif isinstance(e, SWTDCommentNotFoundError):
+        return build_response("SWTD Comment not found.", 404)
     elif isinstance(e, SWTDFormNotFoundError):
         return build_response("SWTD Form not found.", 404)
     elif isinstance(e, UserNotFoundError):

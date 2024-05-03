@@ -17,7 +17,7 @@ class SWTDComment(db.Model):
             "id": self.id,
             "message": self.message,
             "author_id": self.author_id,
-            "date_modified": self.date_modified,
+            "date_modified": self.date_modified.strftime('%m-%d-%Y %H:%M:%S'),
             "is_edited": self.is_edited,
             "is_deleted": self.is_deleted
         }
