@@ -153,7 +153,7 @@ def process_comments(form_id):
         check_fields(data, required_fields)
 
         if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
-            raise InsufficientPermissionsError("Cannot retrieve SWTD form comments.")
+            raise InsufficientPermissionsError("Cannot add an SWTD form comment.")
         
         swtd_comment_service.create_comment(swtd, requester, data.get('message'))
         return build_response({"comments": [comment.to_dict() for comment in swtd.comments]}, 200)
