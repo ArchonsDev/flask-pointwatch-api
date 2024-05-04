@@ -1,5 +1,7 @@
+import json
 from flask import session
 from sqlalchemy.exc import IntegrityError
+from authlib.oauth2.rfc6749.wrappers import OAuth2Token
 
 from . import oauth, user_service
 
@@ -38,3 +40,9 @@ def create_ms_user(id, user_id, access_token):
     db.session.commit()
     
     return ms_user
+
+def parse_access_token(ms_user):
+    if not ms_user.access_token:
+        return None
+    
+    return OAuth2Token(json.loads(ms_user.access_token.replace("'", '"')))
