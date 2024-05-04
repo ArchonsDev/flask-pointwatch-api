@@ -34,4 +34,5 @@ class SWTDForm(db.Model):
             "points": self.points,
             "benefits": self.benefits,
             "is_deleted": self.is_deleted,
+            "validation": self.validation.to_dict() if self.validation else None
         }
