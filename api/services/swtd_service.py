@@ -1,5 +1,5 @@
-from . import ft_service
-from ..exceptions import InvalidParameterError
+from . import term_service
+from ..exceptions import InvalidParameterError, TermNotFoundError
 from ..models import db
 from ..models.swtd_form import SWTDForm
 
@@ -17,7 +17,7 @@ def get_all_swtds(params=None):
     
     return swtd_query.all()
 
-def create_swtd(author_id, title, venue, category, role, date, time_started, time_finished, points, benefits):
+def create_swtd(author_id, title, venue, category, role, date, time_started, time_finished, points, benefits, term):
     swtd_form = SWTDForm(
         author_id=author_id,
         title=title,
@@ -28,7 +28,8 @@ def create_swtd(author_id, title, venue, category, role, date, time_started, tim
         time_started=time_started,
         time_finished=time_finished,
         points=points,
-        benefits=benefits
+        benefits=benefits,
+        term=term
     )
 
     db.session.add(swtd_form)
@@ -45,7 +46,15 @@ def update_swtd(swtd_form, **data):
         if not hasattr(SWTDForm, key):
             raise InvalidParameterError(key)
 
-        setattr(swtd_form, key, value)
+        if key == 'term_id':
+            term = term_service.get_term(value)
+
+            if not term:
+                raise TermNotFoundError()
+            
+            swtd_form.term = term
+        else:            
+            setattr(swtd_form, key, value)
 
     db.session.commit()
     return swtd_form
