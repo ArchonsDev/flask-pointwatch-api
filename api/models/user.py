@@ -30,6 +30,9 @@ class User(db.Model):
         rejected_points = 0
 
         for form in swtds:
+            if form.is_deleted:
+                continue
+            
             status = form.validation.status
             
             if status == 'APPROVED':
