@@ -39,7 +39,7 @@ def create_app():
             **config
         )
 
-    app.errorhandler(Exception)(handle_exception)
+    # app.errorhandler(Exception)(handle_exception)
     
     return app
 
