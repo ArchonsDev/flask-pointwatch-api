@@ -1,5 +1,6 @@
 from flask import Blueprint, request, Response
 from flask_jwt_extended import jwt_required
+from datetime import datetime
 
 from .base_controller import build_response
 from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError
@@ -65,6 +66,56 @@ def process_user(user_id):
 
         user_service.delete_user(user)
         return build_response({"message": "User deleted."}, 200)
+    
+@user_bp.route('/<int:user_id>/points', methods=['GET'])
+@jwt_required()
+def get_points(user_id):
+    email = jwt_service.get_identity_from_token()
+    requester = user_service.get_user('email', email)
+    user = user_service.get_user(id=user_id)
+    # Ensure that the requester exists.
+    if not requester:
+        raise AuthenticationError()
+    # Ensure that the target exists.
+    if not user:
+        raise UserNotFoundError()
+
+    if request.method == 'GET':
+        permissions = ['is_staff', 'is_admin', 'is_superuser']
+        # Ensure that the requester has permission.
+        if requester.id != user_id or user.is_deleted and not auth_service.has_permissions(requester, permissions):
+            raise InsufficientPermissionsError("Cannot retrieve user points.")
+        
+        params = request.args
+        date_fmt = "%m-%d-%Y"
+        swtd_forms = user.swtd_forms
+        swtd_forms = list(filter(lambda swtd_form: swtd_form.is_deleted == False, swtd_forms))
+
+        if 'start_date' in params:
+            start_date = datetime.strptime(params.get('start_date'), date_fmt).date()
+            swtd_forms = list(filter(lambda swtd_form: swtd_form.date >= start_date, swtd_forms))
+
+        if 'end_date' in params:
+            end_date = datetime.strptime(params.get('end_date'), date_fmt).date()
+            swtd_forms = list(filter(lambda swtd_form: swtd_form.date <= end_date, swtd_forms))
+
+        points = {
+            "valid_points": 0,
+            "pending_points": 0,
+            "invalid_points": 0
+        }
+
+        for swtd_form in swtd_forms:
+            status = swtd_form.validation.status
+
+            if status == 'APPROVED':
+                points['valid_points'] = points['valid_points'] + swtd_form.points
+            elif status == 'PENDING':
+                points['pending_points'] = points['pending_points'] + swtd_form.points
+            elif status == 'REJECTED':
+                points['invalid_points'] = points['invalid_points'] + swtd_form.points
+        
+        return build_response(points, 200)
 
 @user_bp.route('/<int:user_id>/avatar', methods=['GET'])
 @jwt_required()
