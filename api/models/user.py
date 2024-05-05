@@ -23,6 +23,28 @@ class User(db.Model):
     # Link to SWTDComment
     comments = db.relationship('SWTDComment', backref='author', lazy=True)
 
+    def calculate_points(self):
+        swtds = self.swtd_forms
+        validated_points = 0
+        unvalidated_points = 0
+        rejected_points = 0
+
+        for form in swtds:
+            status = form.validation.status
+            
+            if status == 'APPROVED':
+                validated_points += form.points
+            elif status == 'REJECTED':
+                rejected_points += form.points
+            elif status == 'PENDING':
+                unvalidated_points += form.points
+
+        return {
+            "valid_points": validated_points,
+            "pending_points": unvalidated_points,
+            "invalid_points": rejected_points
+        }
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -36,5 +58,6 @@ class User(db.Model):
             "is_admin": self.is_admin,
             "is_superuser": self.is_superuser,
             "is_ms_linked": self.ms_user is not None,
-            "is_deleted": self.is_deleted
+            "is_deleted": self.is_deleted,
+            "swtd_points": self.calculate_points()
         }
