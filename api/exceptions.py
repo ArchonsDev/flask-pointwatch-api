@@ -33,5 +33,8 @@ class SWTDCommentNotFoundError(Exception):
 class SWTDFormNotFoundError(Exception):
     pass
 
+class TermNotFoundError(Exception):
+    pass
+
 class UserNotFoundError(Exception):
     pass

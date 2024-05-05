@@ -5,8 +5,8 @@ from flask_jwt_extended import jwt_required
 from datetime import datetime
 
 from .base_controller import build_response, check_fields
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError
-from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service, swtd_comment_service
+from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError, TermNotFoundError
+from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service, swtd_comment_service, term_service
 
 swtd_bp = Blueprint('swtd', __name__, url_prefix='/swtds')
 
@@ -39,6 +39,7 @@ def index():
             'time_finished',
             'points',
             'benefits',
+            'term_id'
         ]
 
         check_fields(data, required_fields)
@@ -56,6 +57,10 @@ def index():
         except Exception:
             raise InvalidDateTimeFormat()
         
+        term = term_service.get_term(data.get('term_id'))
+        if not term:
+            raise TermNotFoundError()
+        
         swtd = swtd_service.create_swtd(
             data.get('author_id'),
             data.get('title'),
@@ -66,7 +71,8 @@ def index():
             data.get('time_started'),
             data.get('time_finished'),
             data.get('points'),
-            data.get('benefits')
+            data.get('benefits'),
+            term
         )
 
         file = request.files.get('proof')
