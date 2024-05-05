@@ -16,6 +16,8 @@ def create_comment(swtd, author, message):
 
 def update_comment(comment, message):
     comment.message = message
+    comment.date_modifued = datetime.now()
+    comment.is_edited = True
     db.session.commit()
 
 def delete_comment(comment):
