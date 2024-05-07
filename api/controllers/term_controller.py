@@ -20,7 +20,6 @@ def index():
         return build_response({"terms": [term.to_dict() for term in terms]}, 200)
     if request.method == 'POST':
         data = request.json
-        permissions = ['is_staff', 'is_admin', 'is_superuser']
         required_fields = [
             'name',
             'start_date',
@@ -29,7 +28,7 @@ def index():
 
         check_fields(data, required_fields)
 
-        if not auth_service.has_permissions(requester, permissions):
+        if not auth_service.has_permissions(requester, minimum_auth='admin'):
             raise InsufficientPermissionsError("Cannot create Term,")
         
         try:

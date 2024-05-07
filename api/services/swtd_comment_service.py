@@ -14,6 +14,18 @@ def create_comment(swtd, author, message):
     db.session.add(comment)
     db.session.commit()
 
+def get_comment_by_id(id):
+    comment = SWTDComment.query.get(id)
+
+    if comment and comment.is_deleted:
+        return None
+    
+    return comment
+
+def get_all_swtd_comments(swtd_form):
+    comments = swtd_form.comments
+    return list(filter(lambda comment: comment.is_deleted == False, comments))
+
 def update_comment(comment, message):
     comment.message = message
     comment.date_modified = datetime.now()

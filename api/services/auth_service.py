@@ -1,17 +1,23 @@
 from . import password_encoder_service, jwt_service
-from ..models.user import User
 
-def has_permissions(user, permissions=[]):
-    flag = False
+def has_permissions(user, minimum_auth=None):
+    auth_levels = {
+        'staff': 1, 
+        'admin': 2,
+        'superuser': 3
+    }
 
-    for key in permissions:
-        if not hasattr(User, key):
-            continue
+    min_auth_level = auth_levels.get(minimum_auth, 0)
+    user_auth_level = 0
+    if user.is_staff:
+        user_auth_level = 1
+    if user.is_admin:
+        user_auth_level = 2
+    if user.is_superuser:
+        user_auth_level = 3
 
-        if getattr(user, key) == True:
-            flag = True
-
-    return flag
+    print(user_auth_level >= min_auth_level)
+    return user_auth_level >= min_auth_level
 
 def login(user, password):
     # Esnure that the user account is not deleted/disabled.

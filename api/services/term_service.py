@@ -23,12 +23,21 @@ def create_term(name, start_date, end_date):
     return term
 
 def get_term(id):
-    return Term.query.get(id)
+    term = Term.query.get(id)
+
+    if term and term.is_deleted:
+        return None
+    
+    return term
 
 def get_all_terms(params=None):
     term_query = Term.query
 
     for key, value in params.items():
+        # Skip 'is_deleted' paramters.
+        if key == 'is_deleted':
+            continue
+
         if not hasattr(Term, key):
             raise InvalidParameterError(key)
         
@@ -36,8 +45,9 @@ def get_all_terms(params=None):
             term_query = term_query.filter(getattr(Term, key).like(f'%{value}%'))
         else:
             term_query = term_query.filter(getattr(Term, key) == value)
-    
-    return term_query.all()
+
+    terms = term_query.all()
+    return list(filter(lambda term: term.is_deleted == False, terms))
 
 def update_term(term, **data):
     for key, value in data.items():

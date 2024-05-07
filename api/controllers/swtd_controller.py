@@ -17,11 +17,10 @@ def index():
     requester = user_service.get_user(email=email)
 
     if request.method == 'GET':
-        permissions = ['is_staff', 'is_admin', 'is_superuser']
         params = {"is_deleted": False, **request.args}
         author_id = int(params.get('author_id', 0))
         # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
-        if requester.id != author_id and not auth_service.has_permissions(requester, permissions):
+        if requester.id != author_id and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
         
         swtds = [swtd.to_dict() for swtd in swtd_service.get_all_swtds(params=params)]
@@ -87,18 +86,13 @@ def index():
 def process_swtd(form_id):
     email = jwt_service.get_identity_from_token()
     requester = user_service.get_user(email=email)
-    permissions = [
-        'is_staff',
-        'is_admin',
-        'is_superuser'
-    ]
 
     swtd = swtd_service.get_swtd(form_id)
     if not swtd:
         raise SWTDFormNotFoundError()
 
     if request.method == 'GET':
-        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
         
         return build_response(swtd.to_dict(), 200)
@@ -115,14 +109,14 @@ def process_swtd(form_id):
         except Exception:
             raise InvalidDateTimeFormat()
 
-        if swtd.author_id != requester.id and not auth_service.has_permissions(requester, permissions):
+        if swtd.author_id != requester.id and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot update SWTD form data.")
         
         swtd = swtd_service.update_swtd(swtd, **data)
         swtd_validation_service.update_validation(swtd, requester, valid="PENDING")
         return build_response(swtd.to_dict(), 200)
     elif request.method == 'DELETE':
-        if swtd.author_id != requester.id and not auth_service.has_permissions(requester, permissions):
+        if swtd.author_id != requester.id and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot delete SWTD form.")
         
         swtd_service.delete_swtd(swtd)
@@ -133,22 +127,17 @@ def process_swtd(form_id):
 def process_comments(form_id):
     email = jwt_service.get_identity_from_token()
     requester = user_service.get_user(email=email)
-    permissions = [
-        'is_staff',
-        'is_admin',
-        'is_superuser'
-    ]
 
     swtd = swtd_service.get_swtd(form_id)
     if not swtd:
         raise SWTDFormNotFoundError()
 
     if request.method == 'GET':
-        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve SWTD form comments.")
         
         comments = swtd.comments
-        if not auth_service.has_permissions(requester, permissions):
+        if not auth_service.has_permissions(requester, minimum_auth='staff'):
             comments = list(filter(lambda comment: comment.is_deleted == False, comments))
 
         return build_response({"comments": [comment.to_dict() for comment in comments]}, 200)
@@ -158,7 +147,7 @@ def process_comments(form_id):
 
         check_fields(data, required_fields)
 
-        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot add an SWTD form comment.")
         
         swtd_comment_service.create_comment(swtd, requester, data.get('message'))
@@ -169,23 +158,17 @@ def process_comments(form_id):
 def handle_swtd(form_id, comment_id):
     email = jwt_service.get_identity_from_token()
     requester = user_service.get_user(email=email)
-    swtd = swtd_service.get_swtd(form_id)
-    permissions = [
-        'is_staff',
-        'is_admin',
-        'is_superuser'
-    ]
 
+    swtd = swtd_service.get_swtd(form_id)
     if not swtd:
         raise SWTDFormNotFoundError()
     
-    comment = list(filter(lambda comment: comment.id == comment_id, swtd.comments)).pop(0)
-
+    comment = swtd_comment_service.get_comment_by_id(comment_id)
     if not comment:
         raise SWTDCommentNotFoundError()
     
     if request.method == 'GET':
-        if (comment.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+        if (comment.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve SWTD form comment.")
         
         return build_response(comment.to_dict(), 200)
@@ -193,13 +176,16 @@ def handle_swtd(form_id, comment_id):
         data = request.json
         required_fields = ['message']
 
+        if comment.author_id != requester.id:
+            raise InsufficientPermissionsError("Cannot update SWTD form comment.")
+
         check_fields(data, required_fields)
 
         swtd_comment_service.update_comment(comment, data.get('message'))
         return build_response(comment.to_dict(), 200)
     if request.method == 'DELETE':
-        if (comment.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
-            raise InsufficientPermissionsError("Cannot retrieve SWTD form comment.")
+        if (comment.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot delete SWTD form comment.")
         
         swtd_comment_service.delete_comment(comment)
         return build_response({"message": "Comment deleted."}, 200)
@@ -209,23 +195,18 @@ def handle_swtd(form_id, comment_id):
 def process_validation(form_id):
     email = jwt_service.get_identity_from_token()
     requester = user_service.get_user(email=email)
-    permissions = [
-        'is_staff',
-        'is_admin',
-        'is_superuser'
-    ]
 
     swtd = swtd_service.get_swtd(form_id)
     if not swtd:
         raise SWTDFormNotFoundError()
 
     if request.method == 'GET':
-        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
         
         return build_response(swtd.validation.to_dict(), 200)
     if request.method == 'PUT':
-        if not auth_service.has_permissions(requester, permissions):
+        if not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
 
         data = request.json
@@ -246,18 +227,13 @@ def process_validation(form_id):
 def show_proof(form_id):
     email = jwt_service.get_identity_from_token()
     requester = user_service.get_user(email=email)
-    permissions = [
-        'is_staff',
-        'is_admin',
-        'is_superuser'
-    ]
 
     swtd = swtd_service.get_swtd(form_id)
     if not swtd:
         raise SWTDFormNotFoundError()
 
     if request.method == 'GET':
-        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve SWTD form proof.")
 
         fp = os.path.join(ft_service.data_dir, str(swtd.author.id), str(swtd.id), swtd.validation.proof)
@@ -268,7 +244,7 @@ def show_proof(form_id):
 
         return Response(content, mimetype=content_type, status=200)
     if request.method == 'PUT':
-        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, permissions):
+        if (swtd.author_id != requester.id or swtd.is_deleted) and not auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot update SWTD form proof.")
         
         if len(request.files) != 1:

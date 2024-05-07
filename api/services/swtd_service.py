@@ -7,6 +7,10 @@ def get_all_swtds(params=None):
     swtd_query = SWTDForm.query
 
     for key, value in params.items():
+        # Skip 'is_deleted' param.
+        if key == 'is_deleted':
+            continue
+
         if not hasattr(SWTDForm, key):
             raise InvalidParameterError(key)
         
@@ -14,8 +18,9 @@ def get_all_swtds(params=None):
             swtd_query = swtd_query.filter(getattr(SWTDForm, key).like(f'%{value}%'))
         else:
             swtd_query = swtd_query.filter(getattr(SWTDForm, key) == value)
-    
-    return swtd_query.all()
+
+    swtds = swtd_query.all()
+    return list(filter(lambda swtd_form: swtd_form.is_deleted == False, swtds))
 
 def create_swtd(author_id, title, venue, category, role, date, time_started, time_finished, points, benefits, term):
     swtd_form = SWTDForm(
@@ -38,7 +43,12 @@ def create_swtd(author_id, title, venue, category, role, date, time_started, tim
     return swtd_form
 
 def get_swtd(id):
-    return SWTDForm.query.get(id)
+    swtd_form = SWTDForm.query.get(id)
+    # Do not return SWTD if marked as deleted.
+    if swtd_form and swtd_form.is_deleted:
+        return None
+    
+    return swtd_form
 
 def update_swtd(swtd_form, **data):
     for key, value in data.items():
