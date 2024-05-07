@@ -1,32 +1,22 @@
 from unittest import TestCase
 
 from api import create_app
-from api.models import db
-from api.models.user import User
+from api.services.user_service import create_user
 
-class TestRegister(TestCase):
+class TestLogin(TestCase):
     def setUp(self):
         self.app = create_app(testing=True)
         self.client = self.app.test_client()
 
-        uri = '/auth/register'
-
-        payload = {
-            'employee_id': '21-4526-578',
-            'email': 'brenturiel.empasis@cit.edu',
-            'firstname': 'Brent Uriel',
-            'lastname': 'Empasis',
-            'password': 'password',
-            'department': 'College'
-        }
-
-        headers = {
-            "Content-Type": "application/json"
-        }
-
-        response = self.client.post(uri, headers=headers, json=payload)
-
-        self.assertEqual(response.status_code, 200)
+        with self.app.app_context():
+            create_user(
+                '21-4526-578',
+                'brenturiel.empasis@cit.edu',
+                'Brent Uriel',
+                'Empasis',
+                'password',
+                'College'
+            )
 
     def tearDown(self):
         pass
