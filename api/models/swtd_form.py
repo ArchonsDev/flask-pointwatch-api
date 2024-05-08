@@ -1,4 +1,4 @@
-from . import db
+from .. import db
 
 class SWTDForm(db.Model):
     __tablename__ = 'tblswtdforms'
@@ -15,6 +15,7 @@ class SWTDForm(db.Model):
     points = db.Column(db.Integer, nullable=False)
     benefits = db.Column(db.String(255), nullable=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
+    term_id = db.Column(db.Integer, db.ForeignKey('tblterms.id'), nullable=False)
     # Link to SWTDValidation
     validation = db.relationship('SWTDValidation', backref='form', uselist=False, lazy=True)
     # Link to SWTDComment
@@ -34,5 +35,6 @@ class SWTDForm(db.Model):
             "points": self.points,
             "benefits": self.benefits,
             "is_deleted": self.is_deleted,
-            "validation": self.validation.to_dict() if self.validation else None
+            "validation": self.validation.to_dict() if self.validation else None,
+            "term": self.term.to_dict()
         }
