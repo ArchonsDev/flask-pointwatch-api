@@ -19,7 +19,6 @@ class AuthService:
         if user.is_superuser:
             user_auth_level = 3
 
-        print(user_auth_level >= min_auth_level)
         return user_auth_level >= min_auth_level
 
     def login(self, user, password):

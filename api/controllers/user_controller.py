@@ -55,7 +55,7 @@ class UserController(Blueprint, BaseController):
 
         if request.method == 'GET':
             # Ensure that the requester has permission.
-            if requester.id != user_id or user.is_deleted and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff') and requester.id != user_id:
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
             return self.build_response(user.to_dict(), 200)
