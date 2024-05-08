@@ -268,6 +268,7 @@ class SWTDController(Blueprint, BaseController):
             file = request.files.get('proof')
 
             self.swtd_validation_service.update_proof(swtd, file)
+            self.swtd_validation_service.update_validation(swtd, requester, valid="PENDING")
             self.ft_service.save(requester.id, swtd.id, file)
 
             return self.build_response(swtd.to_dict(), 200)
