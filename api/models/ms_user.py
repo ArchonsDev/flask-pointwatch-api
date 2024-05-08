@@ -1,5 +1,4 @@
-from . import db
-
+from .. import db
 class MSUser(db.Model):
     __tablename__ = 'tblmsusers'
 

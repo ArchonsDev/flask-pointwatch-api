@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from . import db
+from .. import db
 
 class Term(db.Model):
     __tablename__ = 'tblterms'

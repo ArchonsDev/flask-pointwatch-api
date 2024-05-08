@@ -1,5 +1,7 @@
 from .exceptions import *
-from .controllers.base_controller import build_response
+from .controllers.base_controller import BaseController
+
+build_response = BaseController().build_response
 
 def handle_exception(e):
     if isinstance(e, AccountUnavailableError):

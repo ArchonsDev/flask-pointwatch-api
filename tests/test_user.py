@@ -1,8 +1,7 @@
 from unittest import TestCase
 
 from api import create_app
-from api.services.user_service import create_user
-from api.services.jwt_service import generate_token
+from api.services import user_service, jwt_service
 
 class TestUser(TestCase):
     def setUp(self):
@@ -10,7 +9,7 @@ class TestUser(TestCase):
         self.client = self.app.test_client()
 
         with self.app.app_context():
-            create_user(
+            user_service.create_user(
                 '21-4526-578',
                 'brenturiel.empasis@cit.edu',
                 'Brent Uriel',
@@ -26,7 +25,7 @@ class TestUser(TestCase):
         uri = '/users/1'
 
         with self.app.app_context():
-            token = generate_token('brenturiel.empasis@cit.edu')
+            token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
 
         headers = {
             'Authorization': f'Bearer {token}'
@@ -59,7 +58,7 @@ class TestUser(TestCase):
         uri = '/users/2'
 
         with self.app.app_context():
-            token = generate_token('brenturiel.empasis@cit.edu')
+            token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
 
         headers = {
             'Authorization': f'Bearer {token}'
@@ -77,7 +76,7 @@ class TestUser(TestCase):
         uri = '/users/1'
 
         with self.app.app_context():
-            token = generate_token('brenturiel.empasis@cit.edu')
+            token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
 
         payload = {
             'firstname': 'X',
@@ -103,7 +102,7 @@ class TestUser(TestCase):
         uri = '/users/1'
 
         with self.app.app_context():
-            token = generate_token('brenturiel.empasis@cit.edu')
+            token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
 
         headers = {
             'Authorization': f'Bearer {token}'

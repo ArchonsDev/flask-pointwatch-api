@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from api import create_app
-from api.services.user_service import create_user
+from api.services import user_service
 
 class TestLogin(TestCase):
     def setUp(self):
@@ -9,7 +9,7 @@ class TestLogin(TestCase):
         self.client = self.app.test_client()
 
         with self.app.app_context():
-            create_user(
+            user_service.create_user(
                 '21-4526-578',
                 'brenturiel.empasis@cit.edu',
                 'Brent Uriel',
