@@ -57,24 +57,3 @@ class TestRegister(TestCase):
         data = response.json
 
         self.assertTrue('error' in data)
-
-    # def test_login(self):
-    #     uri = '/auth/login'
-        
-    #     payload = {
-    #         'email': 'brenturiel.empasis@cit.edu',
-    #         'password': 'password'
-    #     }
-
-    #     headers = {
-    #         'Content-Type': "application/json",
-    #     }
-
-    #     response = self.client.post(uri, headers=headers, json=payload)
-
-    #     self.assertEqual(response.status, 200)
-
-    #     data = response.json
-
-    #     self.assertTrue('access_token' in data)
-    #     self.assertTrue('user' in data)

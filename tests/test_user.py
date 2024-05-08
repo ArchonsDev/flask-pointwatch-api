@@ -71,11 +71,8 @@ class TestUser(TestCase):
     def test_get_user_fail(self):
         uri = '/users/2'
 
-        with self.app.app_context():
-            token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
-
         headers = {
-            'Authorization': f'Bearer {token}'
+            'Authorization': f'Bearer {self.token}'
         }
 
         response = self.client.get(uri, headers=headers)
@@ -89,9 +86,6 @@ class TestUser(TestCase):
     def test_update_user_success(self):
         uri = '/users/1'
 
-        with self.app.app_context():
-            token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
-
         payload = {
             'firstname': 'X',
             'lastname': 'X',
@@ -99,7 +93,7 @@ class TestUser(TestCase):
         }
 
         headers = {
-            'Authorization': f'Bearer {token}'
+            'Authorization': f'Bearer {self.token}'
         }
 
         response = self.client.put(uri, headers=headers, json=payload)
@@ -115,11 +109,8 @@ class TestUser(TestCase):
     def test_delete_user_success(self):
         uri = '/users/1'
 
-        with self.app.app_context():
-            token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
-
         headers = {
-            'Authorization': f'Bearer {token}'
+            'Authorization': f'Bearer {self.token}'
         }
 
         response = self.client.delete(uri, headers=headers)

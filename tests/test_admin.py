@@ -52,7 +52,7 @@ class TestAdmin(TestCase):
         self.assertTrue('id' in data)
         self.assertEqual(data.get('id'), 1)  
 
-    def test_get_other_user_as_admin(self):
+    def test_get_other_user_data_as_admin(self):
         uri = '/users/2'
         
         headers = {

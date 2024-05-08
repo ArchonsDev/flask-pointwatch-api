@@ -1,7 +1,8 @@
 from unittest import TestCase
 
-from api import create_app
-from api.services import user_service
+from api import create_app, db
+from api.models.user import User
+from api.services import password_encoder_service, jwt_service
 
 class TestLogin(TestCase):
     def setUp(self):
@@ -9,14 +10,18 @@ class TestLogin(TestCase):
         self.client = self.app.test_client()
 
         with self.app.app_context():
-            user_service.create_user(
-                '21-4526-578',
-                'brenturiel.empasis@cit.edu',
-                'Brent Uriel',
-                'Empasis',
-                'password',
-                'College'
+            user = User(
+                employee_id='21-4526-578',
+                email='brenturiel.empasis@cit.edu',
+                firstname='Brent Uriel',
+                lastname='Empasis',
+                password=password_encoder_service.encode_password('password'),
+                department='College',
+                is_admin=True
             )
+
+            db.session.add(user)
+            db.session.commit()
 
     def tearDown(self):
         pass
