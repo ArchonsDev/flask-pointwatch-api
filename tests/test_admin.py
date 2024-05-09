@@ -1,69 +1,72 @@
-from unittest import TestCase
+from utils import BaseTestCase
 
-from api import create_app, db
-from api.models.user import User
-from api.services import password_encoder_service, jwt_service
+from utils import create_user
 
-class TestAdmin(TestCase):
+class TestAdmin(BaseTestCase):
     def setUp(self):
-        self.app = create_app(testing=True)
-        self.client = self.app.test_client()
+        super().setUp()
 
-        with self.app.app_context():
-            user1 = User(
-                employee_id='21-4526-578',
-                email='brenturiel.empasis@cit.edu',
-                firstname='Brent Uriel',
-                lastname='Empasis',
-                password=password_encoder_service.encode_password('password'),
-                department='College',
-                is_admin=True
-            )
+        self.uri = '/users/{user_id}'
 
-            user2 = User(
-                employee_id='12-3456-789',
-                email='example@email.com',
-                firstname='John',
-                lastname='Doe',
-                password=password_encoder_service.encode_password('password'),
-                department='College'
-            )
+        self.user1_email = 'user1@email.com'
+        self.user1_password = 'password'
 
-            db.session.add(user1)
-            db.session.add(user2)
-            db.session.commit()
+        self.user2_email = 'user2@email.com'
+        self.user2_password = 'password'
 
-        with self.app.app_context():
-            self.token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
+        self.user1_id, self.user1_token = create_user(
+            self.app,
+            self.user1_email,
+            self.user1_password,
+            is_admin=True
+        )
 
-    def test_get_own_user_data(self):
-        uri = '/users/1'
-        
+        self.user2_id, self.user2_token = create_user(
+            self.app,
+            self.user2_email,
+            self.user2_password
+        )
+
+    def tearDown(self):
+        super().tearDown()
+
+    def test_get_own_user_data(self):  
         headers = {
-            'Authorization': f'Bearer {self.token}'
+            'Authorization': f'Bearer {self.user1_token}'
         }
 
-        response = self.client.get(uri, headers=headers)
+        response = self.client.get(self.uri.format(user_id=self.user1_id), headers=headers)
 
         self.assertEqual(response.status_code, 200)
 
         data = response.json
 
         self.assertTrue('id' in data)
-        self.assertEqual(data.get('id'), 1)  
+        self.assertEqual(data.get('id'), 1)
 
-    def test_get_other_user_data_as_admin(self):
-        uri = '/users/2'
-        
+    def test_get_other_user_data_fail(self):
         headers = {
-            'Authorization': f'Bearer {self.token}'
+            'Authorization': f'Bearer {self.user2_token}'
         }
 
-        response = self.client.get(uri, headers=headers)
+        response = self.client.get(self.uri.format(user_id=self.user1_id), headers=headers)
+
+        self.assertEqual(response.status_code, 403)
+
+        data = response.json
+
+        self.assertTrue('error' in data)
+
+    def test_get_other_user_data_as_admin(self):        
+        headers = {
+            'Authorization': f'Bearer {self.user1_token}'
+        }
+
+        response = self.client.get(self.uri.format(user_id=self.user1_id), headers=headers)
 
         self.assertEqual(response.status_code, 200)
 
         data = response.json
 
         self.assertTrue('id' in data)
-        self.assertEqual(data.get('id'), 2)
+        self.assertEqual(data.get('id'), self.user1_id)

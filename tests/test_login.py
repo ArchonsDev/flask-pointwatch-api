@@ -1,44 +1,34 @@
-from unittest import TestCase
+from utils import BaseTestCase, create_user
 
-from api import create_app, db
-from api.models.user import User
-from api.services import password_encoder_service, jwt_service
-
-class TestLogin(TestCase):
+class TestLogin(BaseTestCase):
     def setUp(self):
-        self.app = create_app(testing=True)
-        self.client = self.app.test_client()
+        super().setUp()
 
-        with self.app.app_context():
-            user = User(
-                employee_id='21-4526-578',
-                email='brenturiel.empasis@cit.edu',
-                firstname='Brent Uriel',
-                lastname='Empasis',
-                password=password_encoder_service.encode_password('password'),
-                department='College',
-                is_admin=True
-            )
+        self.uri = '/auth/login'
 
-            db.session.add(user)
-            db.session.commit()
+        self.email = 'example@email.com'
+        self.password = 'password'
+
+        self.user_id, self.user_token = create_user(
+            self.app,
+            self.email,
+            self.password
+        )
 
     def tearDown(self):
-        pass
+        super().tearDown()
 
     def test_login_success(self):
-        uri = '/auth/login'
-
         payload = {
-            'email': 'brenturiel.empasis@cit.edu',
-            'password': 'password'
+            'email': self.email,
+            'password': self.password
         }
 
         headers = {
             'Content-Type': 'application/json'
         }
 
-        response = self.client.post(uri, headers=headers, json=payload)
+        response = self.client.post(self.uri, headers=headers, json=payload)
 
         self.assertEqual(response.status_code, 200)
 
@@ -48,10 +38,8 @@ class TestLogin(TestCase):
         self.assertTrue('user' in data)
 
     def test_login_fail(self):
-        uri = '/auth/login'
-
         payload = {
-            'email': 'brenturiel.empasis@cit.edu',
+            'email': self.email,
             'password': 'asdkjhasjkDAHS'
         }
 
@@ -59,7 +47,7 @@ class TestLogin(TestCase):
             'Content-Type': 'application/json'
         }
 
-        response = self.client.post(uri, headers=headers, json=payload)
+        response = self.client.post(self.uri, headers=headers, json=payload)
 
         self.assertEqual(response.status_code, 401)
 

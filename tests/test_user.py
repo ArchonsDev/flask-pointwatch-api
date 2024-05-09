@@ -1,51 +1,37 @@
-from unittest import TestCase
-
-from api import create_app, db
-from api.models.user import User
-from api.services import password_encoder_service, jwt_service
-
-class TestUser(TestCase):
+from utils import BaseTestCase, create_user
+class TestUser(BaseTestCase):
     def setUp(self):
-        self.app = create_app(testing=True)
-        self.client = self.app.test_client()
+        super().setUp()
 
-        with self.app.app_context():
-            user1 = User(
-                employee_id='21-4526-578',
-                email='brenturiel.empasis@cit.edu',
-                firstname='Brent Uriel',
-                lastname='Empasis',
-                password=password_encoder_service.encode_password('password'),
-                department='College',
-            )
+        self.uri = '/users/{user_id}'
 
-            user2 = User(
-                employee_id='12-3456-789',
-                email='example@email.com',
-                firstname='John',
-                lastname='Doe',
-                password=password_encoder_service.encode_password('password'),
-                department='College'
-            )
+        self.user1_email = 'user1@email.com'
+        self.user1_password = 'password'
+        
+        self.user2_email = 'user2@email.com'
+        self.user2_password = 'password'
 
-            db.session.add(user1)
-            db.session.add(user2)
-            db.session.commit()
+        self.user1_id, self.user1_token = create_user(
+            self.app,
+            self.user1_email,
+            self.user1_password
+        )
 
-        with self.app.app_context():
-            self.token = jwt_service.generate_token('brenturiel.empasis@cit.edu')
+        self.user2_id, self.user2_token = create_user(
+            self.app,
+            self.user2_email,
+            self.user2_password
+        )
 
     def tearDown(self):
-        pass
+        super().tearDown()
 
     def test_get_user_success(self):
-        uri = '/users/1'
-
         headers = {
-            'Authorization': f'Bearer {self.token}'
+            'Authorization': f'Bearer {self.user1_token}'
         }
 
-        response = self.client.get(uri, headers=headers)
+        response = self.client.get(self.uri.format(user_id=self.user1_id), headers=headers)
 
         self.assertEqual(response.status_code, 200)
 
@@ -69,13 +55,11 @@ class TestUser(TestCase):
             self.assertTrue(field in data)
 
     def test_get_user_fail(self):
-        uri = '/users/2'
-
         headers = {
-            'Authorization': f'Bearer {self.token}'
+            'Authorization': f'Bearer {self.user1_token}'
         }
 
-        response = self.client.get(uri, headers=headers)
+        response = self.client.get(self.uri.format(user_id=self.user2_id), headers=headers)
 
         self.assertEqual(response.status_code, 403)
 
@@ -83,9 +67,7 @@ class TestUser(TestCase):
 
         self.assertTrue('error' in data)
 
-    def test_update_user_success(self):
-        uri = '/users/1'
-
+    def test_put_user_success(self):
         payload = {
             'firstname': 'X',
             'lastname': 'X',
@@ -93,10 +75,10 @@ class TestUser(TestCase):
         }
 
         headers = {
-            'Authorization': f'Bearer {self.token}'
+            'Authorization': f'Bearer {self.user1_token}'
         }
 
-        response = self.client.put(uri, headers=headers, json=payload)
+        response = self.client.put(self.uri.format(user_id=self.user1_id), headers=headers, json=payload)
 
         self.assertEqual(response.status_code, 200)
 
@@ -107,13 +89,11 @@ class TestUser(TestCase):
         self.assertEqual(data.get('department'), 'X')
 
     def test_delete_user_success(self):
-        uri = '/users/1'
-
         headers = {
-            'Authorization': f'Bearer {self.token}'
+            'Authorization': f'Bearer {self.user1_token}'
         }
 
-        response = self.client.delete(uri, headers=headers)
+        response = self.client.delete(self.uri.format(user_id=self.user1_id), headers=headers)
 
         self.assertEqual(response.status_code, 200)
 
