@@ -1,10 +1,16 @@
 import random
 import string
+import io
+import os
+
 from unittest import TestCase
+from datetime import datetime
+from werkzeug.datastructures import FileStorage
 
 from api import db, create_app
 from api.models.user import User
-from api.services import password_encoder_service, jwt_service
+from api.models.term import Term
+from api.services import password_encoder_service, jwt_service, term_service
 
 class BaseTestCase(TestCase):
     def setUp(self):
@@ -12,7 +18,13 @@ class BaseTestCase(TestCase):
         self.client = self.app.test_client()
 
     def tearDown(self):
-        pass
+        # Define the path to the file
+        base_path = os.path.abspath('data')
+        file_path = os.path.join(base_path, '1', '1', 'testfile.txt')
+
+        # Check if the file exists before attempting to delete it
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 def generate_random_string():
     characters = string.ascii_letters + string.digits
@@ -38,3 +50,23 @@ def create_user(app, email, password, **data):
 
         token = jwt_service.generate_token(user.email)
         return user.id, token
+
+def create_term(app, name, start_date, end_date, is_deleted=False):
+    with app.app_context():
+        term = Term(
+            name=name,
+            start_date=datetime.strptime(start_date, '%m-%d-%Y'),
+            end_date=datetime.strptime(end_date, '%m-%d-%Y'),
+            is_deleted=is_deleted
+        )
+
+        db.session.add(term)
+        db.session.commit()
+
+        return term.id
+
+def get_test_file():
+    content = b'Lorem ipsum'
+    stream = io.BytesIO(content)
+    file = FileStorage(stream, filename='testfile.txt')
+    return file
