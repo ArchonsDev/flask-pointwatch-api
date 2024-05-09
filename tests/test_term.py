@@ -26,7 +26,7 @@ class TestTerm(BaseTestCase):
         }
 
         payload = {
-            'name': '2st Semester S.Y. 2023-2024',
+            'name': '1st Semester S.Y. 2023-2024',
             'start_date': '01-24-2024',
             'end_date': '05-30-2024'
         }
@@ -41,6 +41,10 @@ class TestTerm(BaseTestCase):
         self.assertTrue('name' in data)
         self.assertTrue('start_date' in data)
         self.assertTrue('end_date' in data)
+
+        self.assertEqual(data.get('name'), '1st Semester S.Y. 2023-2024')
+        self.assertEqual(data.get('start_date'), '01-24-2024')
+        self.assertEqual(data.get('end_date'), '05-30-2024')
 
     def test_get_all_terms(self):
         self.test_post_term()
