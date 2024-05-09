@@ -1,23 +1,20 @@
-from unittest import TestCase
+from utils import BaseTestCase
 
-from api import create_app
-
-class TestRegister(TestCase):
+class TestRegister(BaseTestCase):
     def setUp(self):
-        self.app = create_app(testing=True)
-        self.client = self.app.test_client()
+        super().setUp()
+        
+        self.uri = '/auth/register'
 
     def tearDown(self):
-        pass
+        super().tearDown()
 
-    def test_register_success(self):
-        uri = '/auth/register'
-
+    def test_post_success(self):
         payload = {
-            'employee_id': '21-4526-578',
-            'email': 'brenturiel.empasis@cit.edu',
-            'firstname': 'Brent Uriel',
-            'lastname': 'Empasis',
+            'employee_id': '12-3456-789',
+            'email': 'example@email.com',
+            'firstname': 'John',
+            'lastname': 'Doe',
             'password': 'password',
             'department': 'College'
         }
@@ -26,7 +23,7 @@ class TestRegister(TestCase):
             "Content-Type": "application/json"
         }
 
-        response = self.client.post(uri, headers=headers, json=payload)
+        response = self.client.post(self.uri, headers=headers, json=payload)
 
         self.assertEqual(response.status_code, 200)
 
@@ -35,14 +32,12 @@ class TestRegister(TestCase):
         self.assertTrue('access_token' in data)
         self.assertTrue('user' in data)
 
-    def test_register_fail(self):
-        uri = '/auth/register'
-
+    def test_post_fail(self):
         payload = {
-            'employee_id': '21-4526-578',
-            'email': 'brenturiel.empasis@cit.edu',
-            'firstname': 'Brent Uriel',
-            'lastname': 'Empasis',
+            'employee_id': '12-3456-789',
+            'email': 'example@email.com',
+            'firstname': 'John',
+            'lastname': 'Doe',
             'department': 'College'
         }
 
@@ -50,7 +45,7 @@ class TestRegister(TestCase):
             "Content-Type": "application/json"
         }
 
-        response = self.client.post(uri, headers=headers, json=payload)
+        response = self.client.post(self.uri, headers=headers, json=payload)
 
         self.assertEqual(response.status_code, 400)
 
