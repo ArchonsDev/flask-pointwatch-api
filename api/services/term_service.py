@@ -2,7 +2,7 @@ from ..models.term import Term
 from ..exceptions import InvalidParameterError
 
 class TermService:
-    def __ini__(self, db):
+    def __init__(self, db):
         self.db = db
 
     def check_date_availability(self, start_date, end_date):
@@ -33,7 +33,7 @@ class TermService:
         
         return term
 
-    def get_all_terms(self, params=None):
+    def get_all_terms(self, **params):
         term_query = Term.query
 
         for key, value in params.items():
