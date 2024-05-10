@@ -31,9 +31,6 @@ class UserService:
             return query.filter_by(email=email).first()
         
         user = query.get(id)
-        
-        if user and user.is_deleted:
-            return None
 
         return user
 
@@ -49,9 +46,8 @@ class UserService:
                 user_query = user_query.filter(getattr(User, key).like(f'%{value}%'))
             else:
                 user_query = user_query.filter(getattr(User, key) == value)
-
-        users = user_query.all()        
-        return list(filter(lambda user: user.is_deleted == False, users))
+  
+        return user_query.all()
 
     def update_user(self, user, **data):
         for key, value in data.items():
@@ -73,7 +69,6 @@ class UserService:
 
     def get_user_swtd_forms(self, user, start_date=None, end_date=None):
         swtd_forms = user.swtd_forms
-        swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
 
         if start_date:
             swtd_forms = list(filter(lambda form: form.date >= start_date, swtd_forms))

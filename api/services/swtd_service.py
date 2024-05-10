@@ -22,8 +22,7 @@ class SWTDService:
             else:
                 swtd_query = swtd_query.filter(getattr(SWTDForm, key) == value)
 
-        swtds = swtd_query.all()
-        return list(filter(lambda swtd_form: swtd_form.is_deleted == False, swtds))
+        return swtd_query.all()
 
     def create_swtd(self, author_id, title, venue, category, role, date, time_started, time_finished, points, benefits, term):
         swtd_form = SWTDForm(
@@ -46,12 +45,7 @@ class SWTDService:
         return swtd_form
 
     def get_swtd(self, id):
-        swtd_form = SWTDForm.query.get(id)
-        # Do not return SWTD if marked as deleted.
-        if swtd_form and swtd_form.is_deleted:
-            return None
-        
-        return swtd_form
+        return SWTDForm.query.get(id)
 
     def update_swtd(self, swtd_form, **data):
         for key, value in data.items():

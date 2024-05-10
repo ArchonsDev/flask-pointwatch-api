@@ -26,12 +26,7 @@ class TermService:
         return term
 
     def get_term(self, id):
-        term = Term.query.get(id)
-
-        if term and term.is_deleted:
-            return None
-        
-        return term
+        return Term.query.get(id)
 
     def get_all_terms(self, **params):
         term_query = Term.query
@@ -49,8 +44,7 @@ class TermService:
             else:
                 term_query = term_query.filter(getattr(Term, key) == value)
 
-        terms = term_query.all()
-        return list(filter(lambda term: term.is_deleted == False, terms))
+        return term_query.all()
 
     def update_term(self, term, **data):
         for key, value in data.items():
