@@ -27,11 +27,12 @@ class TermController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
-        if not requester:
+        if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
         if request.method == 'GET':
             terms = self.term_service.get_all_terms()
+            terms = list(filter(lambda term: term.is_deleted == False, terms))
 
             return self.build_response({"terms": [term.to_dict() for term in terms]}, 200)
         if request.method == 'POST':
@@ -66,12 +67,13 @@ class TermController(Blueprint, BaseController):
     def handle_term(self, term_id):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
-        term = self.term_service.get_term(term_id)
 
-        if not requester:
+        if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
-        if not term:
+        term = self.term_service.get_term(term_id)
+
+        if not term or (term and term.is_deleted):
             raise TermNotFoundError()
 
         if request.method == 'GET':            
@@ -81,12 +83,13 @@ class TermController(Blueprint, BaseController):
     def process_terms(self, term_id):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
+
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+        
         term = self.term_service.get_term(term_id)
 
-        if not requester:
-            raise AuthenticationError()
-
-        if not term:
+        if not term or (term and term.is_deleted):
             raise TermNotFoundError()
         
         if request.method == 'GET':
@@ -101,6 +104,7 @@ class TermController(Blueprint, BaseController):
                 swtd_forms = list(filter(lambda swtd_form: swtd_form.author_id == author_id, swtd_forms))
             
             swtd_forms = list(filter(lambda swtd_form: swtd_form.date >= term.start_date and swtd_form.date <= term.end_date, term.swtd_forms))
+            swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
             return self.build_response([swtd_form.to_dict() for swtd_form in swtd_forms], 200)
 
 def setup(app):

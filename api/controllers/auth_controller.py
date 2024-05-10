@@ -130,7 +130,7 @@ class AuthController(Blueprint, BaseController):
 
         user = self.user_service.get_user(email=email)
         # Ensure that the user exists.
-        if not user:
+        if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
         self.user_service.update_user(user, password=data.get('password'))
@@ -159,9 +159,9 @@ class AuthController(Blueprint, BaseController):
         # Create a local account if not yet registered.
         if not user:
             user = self.user_service.create_user(employee_id, email, firstname, lastname, password)
-        # Ensure that a local account has been created.
-        if not user:
-            return redirect(on_fail_redirect_url)
+            # Ensure that a local account has been created.
+            if not user:
+                return redirect(on_fail_redirect_url)
         
         # Ensure that the user has a linked MS Account
         if not user.ms_user:

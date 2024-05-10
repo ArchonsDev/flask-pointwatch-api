@@ -29,13 +29,14 @@ class UserController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
         # Ensure that the requester exists.
-        if not requester:
+        if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         # Ensure that the requester has permissions.
         if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve user list.")
         
         params = {**request.args}
+        users = list(filter(lambda user: user.is_deleted == False, users))
         users = [user.to_dict() for user in self.user_service.get_all_users(params=params)]
 
         return self.build_response({"users": users}, 200)
@@ -45,12 +46,12 @@ class UserController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user('email', email)
         # Ensure that the requester exists.
-        if not requester:
+        if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
         user = self.user_service.get_user(id=user_id)
         # Ensure that the target exists.
-        if not user:
+        if not user or (user and user.is_deleted):
             raise UserNotFoundError()
 
         if request.method == 'GET':
@@ -85,12 +86,12 @@ class UserController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user('email', email)
         # Ensure that the requester exists.
-        if not requester:
+        if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
         user = self.user_service.get_user(id=user_id)
         # Ensure that the target exists.
-        if not user:
+        if not user or (user and user.is_deleted):
             raise UserNotFoundError()
 
         if request.method == 'GET':
@@ -118,12 +119,12 @@ class UserController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
         # Ensure the requester is authorized.
-        if not requester:
+        if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
         user = self.user_service.get_user(id=user_id)
         # Ensure the target is registered.
-        if not user:
+        if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
         # Ensure that both users have MS Accounts linked.
@@ -143,12 +144,12 @@ class UserController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
         # Ensure the requester is authorized.
-        if not requester:
+        if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
         user = self.user_service.get_user(id=user_id)
         # Ensure the target is registered.
-        if not user:
+        if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
         if request.method == 'GET':
@@ -167,6 +168,7 @@ class UserController(Blueprint, BaseController):
                 end_date = datetime.strptime(params.get('end_date'), date_fmt).date()
 
             swtd_forms = self.user_service.get_user_swtd_forms(user, start_date=start_date, end_date=end_date)
+            swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
             return self.build_response({"swtd_forms": [form.to_dict() for form in swtd_forms]}, 200)
 
 def setup(app):

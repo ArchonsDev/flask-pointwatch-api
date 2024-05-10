@@ -6,7 +6,7 @@ from datetime import datetime
 
 from .base_controller import BaseController
 from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service, swtd_comment_service, term_service
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError, TermNotFoundError
+from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError, TermNotFoundError, AuthenticationError
 
 class SWTDController(Blueprint, BaseController):
     def __init__(self, name, import_name, **kwargs):
@@ -36,15 +36,21 @@ class SWTDController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+
         if request.method == 'GET':
-            params = {"is_deleted": False, **request.args}
+            params = {**request.args}
             author_id = int(params.get('author_id', 0))
             # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
             if requester.id != author_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
             
-            swtds = [swtd.to_dict() for swtd in self.swtd_service.get_all_swtds(params=params)]
-            return self.build_response({"swtds": swtds}, 200)
+            swtd_forms = self.swtd_service.get_all_swtds(params=params)
+            swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+            swtd_forms = [form.to_dict() for form in swtd_forms]
+
+            return self.build_response({"swtds": swtd_forms}, 200)
         elif request.method == 'POST':
             data = request.form
             required_fields = [
@@ -77,7 +83,7 @@ class SWTDController(Blueprint, BaseController):
                 raise InvalidDateTimeFormat()
             
             term = self.term_service.get_term(data.get('term_id'))
-            if not term:
+            if not term or (term and term.is_deleted):
                 raise TermNotFoundError()
             
             swtd = self.swtd_service.create_swtd(
@@ -106,8 +112,11 @@ class SWTDController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+
         swtd = self.swtd_service.get_swtd(form_id)
-        if not swtd:
+        if not swtd or (swtd and swtd.is_deleted):
             raise SWTDFormNotFoundError()
 
         if request.method == 'GET':
@@ -146,17 +155,18 @@ class SWTDController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+
         swtd = self.swtd_service.get_swtd(form_id)
-        if not swtd:
+        if not swtd or (swtd and swtd.is_deleted):
             raise SWTDFormNotFoundError()
 
         if request.method == 'GET':
             if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD form comments.")
-            
-            comments = swtd.comments
-            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                comments = list(filter(lambda comment: comment.is_deleted == False, comments))
+
+            comments = list(filter(lambda comment: comment.is_deleted == False, swtd.comments))
 
             return self.build_response({"comments": [comment.to_dict() for comment in comments]}, 200)
         if request.method == 'POST':
@@ -176,12 +186,15 @@ class SWTDController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+
         swtd = self.swtd_service.get_swtd(form_id)
-        if not swtd:
+        if not swtd or (swtd and swtd.is_deleted):
             raise SWTDFormNotFoundError()
         
         comment = self.swtd_comment_service.get_comment_by_id(comment_id)
-        if not comment:
+        if not comment or (comment and comment.is_deleted):
             raise SWTDCommentNotFoundError()
         
         if request.method == 'GET':
@@ -212,8 +225,11 @@ class SWTDController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+
         swtd = self.swtd_service.get_swtd(form_id)
-        if not swtd:
+        if not swtd or (swtd and swtd.is_deleted):
             raise SWTDFormNotFoundError()
 
         if request.method == 'GET':
@@ -243,8 +259,11 @@ class SWTDController(Blueprint, BaseController):
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+
         swtd = self.swtd_service.get_swtd(form_id)
-        if not swtd:
+        if not swtd or (swtd and swtd.is_deleted):
             raise SWTDFormNotFoundError()
 
         if request.method == 'GET':

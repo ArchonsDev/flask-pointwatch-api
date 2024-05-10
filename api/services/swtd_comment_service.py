@@ -18,16 +18,7 @@ class SWTDCommentService:
         self.db.session.commit()
 
     def get_comment_by_id(self, id):
-        comment = SWTDComment.query.get(id)
-
-        if comment and comment.is_deleted:
-            return None
-        
-        return comment
-
-    def get_all_swtd_comments(self, swtd_form):
-        comments = swtd_form.comments
-        return list(filter(lambda comment: comment.is_deleted == False, comments))
+        return SWTDComment.query.get(id)
 
     def update_comment(self, comment, message):
         comment.message = message
