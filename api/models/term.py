@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from . import db
+from .. import db
 
 class Term(db.Model):
     __tablename__ = 'tblterms'
@@ -18,6 +18,6 @@ class Term(db.Model):
             "id": self.id,
             "name": self.name,
             "start_date": self.start_date.strftime("%m-%d-%Y"),
-            "end_date": self.start_date.strftime("%m-%d-%Y"),
+            "end_date": self.end_date.strftime("%m-%d-%Y"),
             "is_ongoing": self.start_date <= datetime.now().date() and self.end_date >= datetime.now().date()
         }

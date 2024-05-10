@@ -1,5 +1,6 @@
-from . import db
 from datetime import datetime
+
+from .. import db
 
 class SWTDComment(db.Model):
     __tablename__ = 'tblswtdcomments'

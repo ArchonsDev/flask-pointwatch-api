@@ -1,4 +1,4 @@
-from . import db
+from .. import db
 
 class SWTDValidation(db.Model):
     __tablename__ = 'tblswtdvalidations'

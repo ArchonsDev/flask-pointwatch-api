@@ -1,25 +1,31 @@
 from datetime import datetime
 
-from ..models import db
 from ..models.swtd_comment import SWTDComment
 
-def create_comment(swtd, author, message):
-    comment = SWTDComment(
-        author_id=author.id,
-        swtd_id=swtd.id,
-        message=message,
-        date_modified=datetime.now(),
-    )
+class SWTDCommentService:
+    def __init__(self, db):
+        self.db = db
 
-    db.session.add(comment)
-    db.session.commit()
+    def create_comment(self, swtd, author, message):
+        comment = SWTDComment(
+            author_id=author.id,
+            swtd_id=swtd.id,
+            message=message,
+            date_modified=datetime.now(),
+        )
 
-def update_comment(comment, message):
-    comment.message = message
-    comment.date_modified = datetime.now()
-    comment.is_edited = True
-    db.session.commit()
+        self.db.session.add(comment)
+        self.db.session.commit()
 
-def delete_comment(comment):
-    comment.is_deleted = True
-    db.session.commit()
+    def get_comment_by_id(self, id):
+        return SWTDComment.query.get(id)
+
+    def update_comment(self, comment, message):
+        comment.message = message
+        comment.date_modified = datetime.now()
+        comment.is_edited = True
+        self.db.session.commit()
+
+    def delete_comment(self, comment):
+        comment.is_deleted = True
+        self.db.session.commit()

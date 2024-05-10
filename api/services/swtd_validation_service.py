@@ -1,40 +1,43 @@
 from datetime import datetime
 
-from . import ft_service
-from ..models import db
 from ..models.swtd_validation import SWTDValidation
 
-def create_validation(swtd, proof):
-    validation = SWTDValidation(
-        swtd_id=swtd.id,
-        proof=proof
-    )
+class SWTDValidatioNService:
+    def __init__(self, db, ft_service):
+        self.db = db
+        self.ft_service = ft_service
 
-    db.session.add(validation)
-    db.session.commit()
+    def create_validation(self, swtd, proof):
+        validation = SWTDValidation(
+            swtd_id=swtd.id,
+            proof=proof
+        )
 
-def update_validation(swtd, user, valid=None):
-    validation = swtd.validation
+        self.db.session.add(validation)
+        self.db.session.commit()
 
-    if valid == True:
-        validation.status = "APPROVED"
-        validation.validator = user
-        validation.validated_on = datetime.now()
-    elif valid == False:
-        validation.status = "REJECTED"
-        validation.validator = user
-        validation.validated_on = datetime.now()
-    else:
-        validation.status = "PENDING"
-        validation.validator = None
-        validation.validated_on = None
+    def update_validation(self, swtd, user, valid=None):
+        validation = swtd.validation
 
-    db.session.commit()
+        if valid == True:
+            validation.status = "APPROVED"
+            validation.validator = user
+            validation.validated_on = datetime.now()
+        elif valid == False:
+            validation.status = "REJECTED"
+            validation.validator = user
+            validation.validated_on = datetime.now()
+        else:
+            validation.status = "PENDING"
+            validation.validator = None
+            validation.validated_on = None
 
-def update_proof(swtd, file):
-    validation = swtd.validation
+        self.db.session.commit()
 
-    ft_service.delete(swtd.author_id, swtd.id)
+    def update_proof(self, swtd, file):
+        validation = swtd.validation
 
-    validation.proof = file.filename
-    db.session.commit()
+        self.ft_service.delete(swtd.author_id, swtd.id)
+
+        validation.proof = file.filename
+        self.db.session.commit()
