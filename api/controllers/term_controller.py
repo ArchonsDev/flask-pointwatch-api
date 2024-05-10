@@ -32,7 +32,8 @@ class TermController(Blueprint, BaseController):
 
         if request.method == 'GET':
             terms = self.term_service.get_all_terms()
-            terms = list(filter(lambda term: term.is_deleted == False, terms))
+            if len(terms) > 0:
+                terms = list(filter(lambda term: term.is_deleted == False, terms))
 
             return self.build_response({"terms": [term.to_dict() for term in terms]}, 200)
         if request.method == 'POST':
@@ -93,18 +94,19 @@ class TermController(Blueprint, BaseController):
             raise TermNotFoundError()
         
         if request.method == 'GET':
-            params = request.args
-            author_id = int(params.get('author_id', 0))
-            swtd_forms = term.swtd_forms
-
-            if author_id:
-                if author_id != requester.id and not self.auth_service.has_permissions(requester, 'staff'):
-                    raise InsufficientPermissionsError("Must be at least staff to retrieve term SWTDs without specifying the author.")
-                
-                swtd_forms = list(filter(lambda swtd_form: swtd_form.author_id == author_id, swtd_forms))
+            author_id = int(request.args.get('author_id')) if 'author_id' in request.args else None
             
-            swtd_forms = list(filter(lambda swtd_form: swtd_form.date >= term.start_date and swtd_form.date <= term.end_date, term.swtd_forms))
-            swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+            if not author_id:
+                raise MissingRequiredPropertyError('author_id')
+
+            if author_id != requester.id and not self.auth_service.has_permissions(requester, 'staff'):
+                raise InsufficientPermissionsError("Must be at least staff to retrieve term SWTDs without specifying the author.")
+            
+            if len(swtd_forms) > 0:
+                swtd_forms = list(filter(lambda swtd_form: swtd_form.author_id == author_id, swtd_forms))
+                swtd_forms = list(filter(lambda swtd_form: swtd_form.date >= term.start_date and swtd_form.date <= term.end_date, term.swtd_forms))
+                swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+
             return self.build_response([swtd_form.to_dict() for swtd_form in swtd_forms], 200)
 
 def setup(app):
