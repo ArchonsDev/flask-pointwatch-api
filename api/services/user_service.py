@@ -121,11 +121,25 @@ class UserService:
             summary['excess_points'] = 0
             summary['lacking_points'] = 0
 
+        clearing = Clearing.query.filter((Clearing.user_id == user.id) & (Clearing.term_id == term.id)).first()
+        if clearing:
+            summary['is_cleared'] = clearing is not None
+
         return summary
     
     def clear_user_for_term(self, user, target, term):
         summary = self.get_point_summary(target, term)
 
+        excess_points = summary.get('excess_points')
+        target.point_balance += excess_points
+
+        lacking_points = summary.get('lacking_points')
+
+        if lacking_points > 0  and lacking_points - target.point_balance > 0:
+            return
+        
+        target.point_balance -= lacking_points
+        
         clearing = Clearing(
             user_id=target.id,
             term_id=term.id,
@@ -133,12 +147,6 @@ class UserService:
         )
 
         self.db.session.add(clearing)
-
-        excess_points = summary.get('excess_points', 0)
-
-        if excess_points > 0:
-            target.point_balance += excess_points
-
         self.db.session.commit()
 
     def unclear_user_for_term(self, target, term):
