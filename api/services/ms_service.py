@@ -1,40 +1,49 @@
-from flask import session
-from sqlalchemy.exc import IntegrityError
+import json
+from authlib.oauth2.rfc6749.wrappers import OAuth2Token
 
-from . import oauth, user_service
-
-from ..models import db
 from ..models.ms_user import MSUser
 
-def get_user_data(ms_token):
-    url = 'https://graph.microsoft.com/v1.0/me'
-    user_data = None
+class MSService:
+    def __init__(self, db, oauth, user_service):
+        self.db = db
+        self.oauth = oauth
+        self.user_service = user_service
 
-    response = oauth.microsoft.get(url, token=ms_token)
+    def get_user_data(self, ms_token):
+        url = 'https://graph.microsoft.com/v1.0/me'
+        user_data = None
 
-    if response.status_code == 200:
-        user_data = response.json()
+        response = self.oauth.microsoft.get(url, token=ms_token)
 
-    return user_data
+        if response.status_code == 200:
+            user_data = response.json()
 
-def get_user_avatar(email, ms_token):
-    url = f'https://graph.microsoft.com/v1.0/users/{email}/photo/$value'
+        return user_data
 
-    response = oauth.microsoft.get(url.format(email=email), token=ms_token)
+    def get_user_avatar(self, email, ms_token):
+        url = f'https://graph.microsoft.com/v1.0/users/{email}/photo/$value'
 
-    if response.status_code == 200:
-        return response.content
+        response = self.oauth.microsoft.get(url.format(email=email), token=ms_token)
 
-    return None
+        if response.status_code == 200:
+            return response.content
 
-def create_ms_user(id, user_id, access_token):
-    ms_user = MSUser(
-        id=id,
-        user_id=user_id,
-        access_token=access_token
-    )
+        return None
 
-    db.session.add(ms_user)
-    db.session.commit()
-    
-    return ms_user
+    def create_ms_user(self, id, user_id, access_token):
+        ms_user = MSUser(
+            id=id,
+            user_id=user_id,
+            access_token=access_token
+        )
+
+        self.db.session.add(ms_user)
+        self.db.session.commit()
+        
+        return ms_user
+
+    def parse_access_token(self, ms_user):
+        if not ms_user.access_token:
+            return None
+        
+        return OAuth2Token(json.loads(ms_user.access_token.replace("'", '"')))

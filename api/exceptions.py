@@ -27,7 +27,13 @@ class MissingRequiredPropertyError(Exception):
 class ResourceNotFoundError(Exception):
     pass
 
+class SWTDCommentNotFoundError(Exception):
+    pass
+
 class SWTDFormNotFoundError(Exception):
+    pass
+
+class TermNotFoundError(Exception):
     pass
 
 class UserNotFoundError(Exception):
