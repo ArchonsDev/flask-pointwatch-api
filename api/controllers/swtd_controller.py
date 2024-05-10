@@ -47,7 +47,10 @@ class SWTDController(Blueprint, BaseController):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
             
             swtd_forms = self.swtd_service.get_all_swtds(params=params)
-            swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+
+            if len(swtd_forms) > 0:
+                swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+
             swtd_forms = [form.to_dict() for form in swtd_forms]
 
             return self.build_response({"swtds": swtd_forms}, 200)
@@ -166,7 +169,10 @@ class SWTDController(Blueprint, BaseController):
             if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD form comments.")
 
-            comments = list(filter(lambda comment: comment.is_deleted == False, swtd.comments))
+            comments = swtd.comments
+
+            if len(comments) > 0:
+                comments = list(filter(lambda comment: comment.is_deleted == False, comments))
 
             return self.build_response({"comments": [comment.to_dict() for comment in comments]}, 200)
         if request.method == 'POST':
