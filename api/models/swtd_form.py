@@ -12,7 +12,7 @@ class SWTDForm(db.Model):
     date = db.Column(db.Date, nullable=False)
     time_started = db.Column(db.Time, nullable=False)
     time_finished = db.Column(db.Time, nullable=False)
-    points = db.Column(db.Integer, nullable=False)
+    points = db.Column(db.Float, nullable=False)
     benefits = db.Column(db.String(255), nullable=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     term_id = db.Column(db.Integer, db.ForeignKey('tblterms.id'), nullable=False)

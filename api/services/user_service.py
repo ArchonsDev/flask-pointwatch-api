@@ -1,4 +1,7 @@
+import json
+
 from ..models.user import User
+from ..models.clearing import Clearing
 from ..exceptions import InvalidParameterError
 
 class UserService:
@@ -78,32 +81,79 @@ class UserService:
 
         return swtd_forms
 
-    def get_point_summary(self, user, start_date=None, end_date=None):
-        swtd_forms = user.swtd_forms
-        swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+    def get_point_summary(self, user, term):
+        swtd_forms = term.swtd_forms
+        swtd_forms = list(filter(lambda form: (form.is_deleted == False) & (form.date >= term.start_date) & (form.date <= term.end_date), swtd_forms))
 
-        if start_date:
-            swtd_forms = list(filter(lambda form: form.date >= start_date, swtd_forms))
+        with open('point_requirements.json', 'r') as f:
+            POINT_REQUIREMENTS = json.load(f)
 
-        if end_date:
-            swtd_forms = list(filter(lambda form: form.date <= end_date, swtd_forms))
+        summary = {
+            'valid_points': 0,
+            'pending_points': 0,
+            'invalid_points': 0,
+        }
 
-        valid_points = 0
-        pending_points = 0
-        invalid_points = 0
-
+        # Compute VALID, PENDING, and INVALID points
         for form in swtd_forms:
             status = form.validation.status
 
             if status == 'APPROVED':
-                valid_points += form.points
+                summary['valid_points'] += form.points
             elif status == 'PENDING':
-                pending_points += form.points
+                summary['pending_points'] += form.points
             elif status == 'REJECTED':
-                invalid_points += form.points
+                summary['invalid_points'] += form.points
 
-        return {
-            "valid_points": valid_points,
-            "pending_points": pending_points,
-            "invalid_points": invalid_points
-        }
+        # Compute LACKING points
+        required_points = POINT_REQUIREMENTS.get(user.department, 0)
+        summary['required_points'] = required_points
+
+        balance = summary['valid_points'] - required_points
+
+        if balance > 0:
+            summary['excess_points'] = balance
+            summary['lacking_points'] = 0
+        elif balance < 0:
+            summary['excess_points'] = 0
+            summary['lacking_points'] = balance * -1
+        else:
+            summary['excess_points'] = 0
+            summary['lacking_points'] = 0
+
+        return summary
+    
+    def clear_user_for_term(self, user, target, term):
+        summary = self.get_point_summary(target, term)
+
+        clearing = Clearing(
+            user_id=target.id,
+            term_id=term.id,
+            cleared_by=user.id
+        )
+
+        self.db.session.add(clearing)
+
+        excess_points = summary.get('excess_points', 0)
+
+        if excess_points > 0:
+            target.point_balance += excess_points
+
+        self.db.session.commit()
+
+    def unclear_user_for_term(self, target, term):
+        summary = self.get_point_summary(target, term)
+
+        clearing = Clearing.query.filter((Clearing.user_id == target.id) & (Clearing.term_id == term.id)).first()
+        # TODO: Create custome exception
+        if not clearing:
+            return
+
+        self.db.session.delete(clearing)
+
+        excess_points = summary.get('excess_points', 0)
+
+        if excess_points > 0:
+            target.point_balance -= excess_points
+
+        self.db.session.commit()
