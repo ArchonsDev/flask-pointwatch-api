@@ -36,10 +36,13 @@ class UserController(Blueprint, BaseController):
             raise InsufficientPermissionsError("Cannot retrieve user list.")
         
         params = {**request.args}
-        users = list(filter(lambda user: user.is_deleted == False, users))
-        users = [user.to_dict() for user in self.user_service.get_all_users(params=params)]
 
-        return self.build_response({"users": users}, 200)
+        users = self.user_service.get_all_users(params=params)
+
+        if len(users) > 0:
+            users = list(filter(lambda user: user.is_deleted == False, users))
+
+        return self.build_response({"users": [user.to_dict() for user in users]}, 200)
 
     @jwt_required()
     def process_user(self, user_id):
@@ -168,7 +171,10 @@ class UserController(Blueprint, BaseController):
                 end_date = datetime.strptime(params.get('end_date'), date_fmt).date()
 
             swtd_forms = self.user_service.get_user_swtd_forms(user, start_date=start_date, end_date=end_date)
-            swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+
+            if len(swtd_forms) > 0:
+                swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+            
             return self.build_response({"swtd_forms": [form.to_dict() for form in swtd_forms]}, 200)
 
 def setup(app):
