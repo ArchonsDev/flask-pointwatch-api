@@ -83,8 +83,13 @@ class UserService:
         return swtd_forms
 
     def get_point_summary(self, user, term) -> PointSummary:
-        swtd_forms = term.swtd_forms
-        swtd_forms = list(filter(lambda form: (form.is_deleted == False) & (form.date >= term.start_date) & (form.date <= term.end_date), swtd_forms))
+        swtd_forms = list(filter(
+            lambda form: (form.is_deleted == False) & 
+            (form.date >= term.start_date) & 
+            (form.date <= term.end_date) &
+            (form.author_id == user.id),
+            term.swtd_forms
+        ))
 
         points = PointSummary()
 
