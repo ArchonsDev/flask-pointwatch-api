@@ -24,7 +24,7 @@ class UserController(Blueprint, BaseController):
         self.route('/<int:user_id>/points', methods=['GET'])(self.get_points)
         self.route('/<int:user_id>/avatar', methods=['GET'])(self.get_avatar)
         self.route('/<int:user_id>/swtds', methods=['GET'])(self.get_user_swtds)
-        self.route('/<int:user_id>/terms/<int:term_id>', methods=['POST', 'DELETE'])(self.handle_clearing)
+        self.route('/<int:user_id>/terms/<int:term_id>', methods=['GET', 'POST', 'DELETE'])(self.handle_clearing)
 
     @jwt_required()
     def get_all_users(self):
@@ -181,23 +181,28 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def handle_clearing(self, user_id, term_id):
         email = jwt_service.get_identity_from_token()
-        requester = user_service.get_user(email=email)
 
+        requester = user_service.get_user(email=email)
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        if not self.auth_service.has_permissions(requester, minimum_auth='admin'):
-            raise InsufficientPermissionsError("Cannot update user clearance.")
-        
         user = user_service.get_user(id=user_id)
-
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
         term = term_service.get_term(term_id)
-
         if not term or (term and term.is_deleted):
             raise TermNotFoundError()
+        
+        if request.method == 'GET':
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+                raise InsufficientPermissionsError("Cannot get user term data.")
+    
+            term_summary = user_service.get_term_summary(user, term)
+            return self.build_response(term_summary, 200)
+
+        if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            raise InsufficientPermissionsError("Cannot update user clearance.")
         
         if request.method == 'POST':
             self.user_service.clear_user_for_term(requester, user, term)
