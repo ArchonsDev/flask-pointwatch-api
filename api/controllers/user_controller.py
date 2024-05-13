@@ -3,8 +3,8 @@ from flask_jwt_extended import jwt_required
 from datetime import datetime
 
 from .base_controller import BaseController
-from ..services import jwt_service, user_service, auth_service, ms_service
-from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError
+from ..services import jwt_service, user_service, auth_service, ms_service, term_service
+from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError
 
 class UserController(Blueprint, BaseController):
     def __init__(self, name, import_name, **kwargs):
@@ -14,6 +14,7 @@ class UserController(Blueprint, BaseController):
         self.user_service = user_service
         self.auth_service = auth_service
         self.ms_service = ms_service
+        self.term_service = term_service
 
         self.map_routes()
 
@@ -23,6 +24,7 @@ class UserController(Blueprint, BaseController):
         self.route('/<int:user_id>/points', methods=['GET'])(self.get_points)
         self.route('/<int:user_id>/avatar', methods=['GET'])(self.get_avatar)
         self.route('/<int:user_id>/swtds', methods=['GET'])(self.get_user_swtds)
+        self.route('/<int:user_id>/terms/<int:term_id>', methods=['GET', 'POST', 'DELETE'])(self.handle_clearing)
 
     @jwt_required()
     def get_all_users(self):
@@ -99,21 +101,20 @@ class UserController(Blueprint, BaseController):
 
         if request.method == 'GET':
             # Ensure that the requester has permission.
-            if requester.id != user_id or user.is_deleted and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user points.")
             
-            params = request.args
-            date_fmt = "%m-%d-%Y"
-            start_date = None
-            end_date = None
+            term_id = int(request.args.get('term_id', 0))
 
-            if 'start_date' in params:
-                start_date = datetime.strptime(params.get('start_date'), date_fmt).date()
+            if not term_id:
+                raise MissingRequiredPropertyError('term_id')
+            
+            term = term_service.get_term(term_id)
 
-            if 'end_date' in params:
-                end_date = datetime.strptime(params.get('end_date'), date_fmt).date()
+            if not term or (term and term.is_deleted):
+                raise TermNotFoundError()
 
-            points = self.user_service.get_point_summary(user, start_date=start_date, end_date=end_date)
+            points = self.user_service.get_point_summary(user, term)
             
             return self.build_response(points, 200)
 
@@ -176,6 +177,41 @@ class UserController(Blueprint, BaseController):
                 swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
             
             return self.build_response({"swtd_forms": [form.to_dict() for form in swtd_forms]}, 200)
+
+    @jwt_required()
+    def handle_clearing(self, user_id, term_id):
+        email = jwt_service.get_identity_from_token()
+
+        requester = user_service.get_user(email=email)
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+        
+        user = user_service.get_user(id=user_id)
+        if not user or (user and user.is_deleted):
+            raise UserNotFoundError()
+        
+        term = term_service.get_term(term_id)
+        if not term or (term and term.is_deleted):
+            raise TermNotFoundError()
+        
+        if request.method == 'GET':
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+                raise InsufficientPermissionsError("Cannot get user term data.")
+    
+            term_summary = user_service.get_term_summary(user, term)
+            return self.build_response(term_summary, 200)
+
+        if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            raise InsufficientPermissionsError("Cannot update user clearance.")
+        
+        if request.method == 'POST':
+            self.user_service.clear_user_for_term(requester, user, term)
+
+            return self.build_response({'message': 'Employee clearance granted for term.'}, 200)
+        if request.method == 'DELETE':
+            self.user_service.unclear_user_for_term(user, term)
+
+            return self.build_response({'message': 'Employee clearance revoked for term.'}, 200)
 
 def setup(app):
     app.register_blueprint(UserController('user', __name__, url_prefix='/users'))
