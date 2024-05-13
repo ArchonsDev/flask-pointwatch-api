@@ -32,7 +32,12 @@ def create_app(testing=False):
     oauth.init_app(app)
     db.init_app(app)
     migrate.init_app(app, db)
-    socketio.init_app(app)
+    socketio.init_app(
+        app,
+        namespaces=[
+            '/notifications',
+        ]
+    )
 
     with app.app_context():
         if testing:
@@ -57,6 +62,6 @@ def create_app(testing=False):
         )
 
     from .exception_handler import handle_exception
-    app.errorhandler(Exception)(handle_exception)
+    # app.errorhandler(Exception)(handle_exception)
     
     return app
