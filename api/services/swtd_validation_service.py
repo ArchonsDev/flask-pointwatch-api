@@ -1,11 +1,18 @@
 from datetime import datetime
+from sqlalchemy import event
 
 from ..models.swtd_validation import SWTDValidation
 
 class SWTDValidatioNService:
-    def __init__(self, db, ft_service):
+    def __init__(self, db, socketio, ft_service):
         self.db = db
+        self.socketio = socketio
         self.ft_service = ft_service
+
+        self.init_event_handlers()
+
+    def init_event_handlers(self):
+        event.listen(SWTDValidation, 'after_update', self.handle_after_validation_update)
 
     def create_validation(self, swtd, proof):
         validation = SWTDValidation(
@@ -41,3 +48,21 @@ class SWTDValidatioNService:
 
         validation.proof = file.filename
         self.db.session.commit()
+
+    def handle_after_validation_update(self, mapper, connection, target: SWTDValidation):
+        actor = target.validator
+        author = target.form.author
+        status = target.status
+        swtd_id = target.swtd_id
+        title = target.form.title
+
+        self.socketio.emit(
+            'swtd_validation_update',
+            {
+                'id': swtd_id,
+                'title': title,
+                'status': status,
+                'actor': f'{actor.firstname} {actor.lastname}',
+            },
+            namespace=f'/'
+        )

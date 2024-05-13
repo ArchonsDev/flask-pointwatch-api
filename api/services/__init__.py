@@ -10,7 +10,7 @@ from .term_service import TermService
 from .swtd_service import SWTDService
 from .swtd_validation_service import SWTDValidatioNService
 
-from .. import db, oauth, mail
+from .. import db, oauth, mail, socketio
 
 password_encoder_service = PasswordEncoderService()
 jwt_service = JWTService()
@@ -22,4 +22,4 @@ ms_service = MSService(db, oauth, user_service)
 swtd_comment_service = SWTDCommentService(db)
 term_service = TermService(db)
 swtd_service = SWTDService(db, term_service)
-swtd_validation_service = SWTDValidatioNService(db, ft_service)
+swtd_validation_service = SWTDValidatioNService(db, socketio, ft_service)
