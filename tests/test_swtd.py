@@ -45,4 +45,16 @@ class TestSWTD(BaseTestCase):
 
         self.assertEqual(response.status_code, 200)
 
+         # Retrieving the list of SWTD forms to verify the newly submitted form is present
+        get_headers = {
+            'Authorization': f'Bearer {self.user_token}'
+        }
+        get_params = {
+            'author_id': str(self.user_id)  # Filtering by author ID to simplify checking
+        }
+        response = self.client.get(self.uri, headers=get_headers, query_string=get_params)
+        self.assertEqual(response.status_code, 200)
         data = response.json
+        self.assertTrue('swtds' in data and len(data['swtds']) > 0)
+        found = any(swtd['title'] == 'Sample SWTD' for swtd in data['swtds'])
+        self.assertTrue(found, "Submitted SWTD form should be in the retrieved list")
