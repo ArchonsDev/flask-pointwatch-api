@@ -1,5 +1,9 @@
+import json
+
 from ..models.user import User
-from ..exceptions import InvalidParameterError
+from ..models.clearing import Clearing
+from ..models.point_summary import PointSummary
+from ..exceptions import InvalidParameterError, InsufficientSWTDPointsError, TermClearingError
 
 class UserService:
     def __init__(self, db, password_encoder_service):
@@ -78,32 +82,76 @@ class UserService:
 
         return swtd_forms
 
-    def get_point_summary(self, user, start_date=None, end_date=None):
-        swtd_forms = user.swtd_forms
-        swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
+    def get_point_summary(self, user, term) -> PointSummary:
+        swtd_forms = list(filter(
+            lambda form: (form.is_deleted == False) & 
+            (form.date >= term.start_date) & 
+            (form.date <= term.end_date) &
+            (form.author_id == user.id),
+            term.swtd_forms
+        ))
 
-        if start_date:
-            swtd_forms = list(filter(lambda form: form.date >= start_date, swtd_forms))
+        points = PointSummary()
 
-        if end_date:
-            swtd_forms = list(filter(lambda form: form.date <= end_date, swtd_forms))
-
-        valid_points = 0
-        pending_points = 0
-        invalid_points = 0
-
+        # Compute VALID, PENDING, and INVALID points
         for form in swtd_forms:
             status = form.validation.status
 
             if status == 'APPROVED':
-                valid_points += form.points
+                points.valid_points += form.points
             elif status == 'PENDING':
-                pending_points += form.points
+                points.pending_points += form.points
             elif status == 'REJECTED':
-                invalid_points += form.points
+                points.invalid_points += form.points
+
+        # Compute LACKING points
+        with open('point_requirements.json', 'r') as f:
+            points.required_points = json.load(f).get(user.department, 0)
+
+        return points
+    
+    def get_term_summary(self, user, term):
+        points = self.get_point_summary(user, term)
+        clearing = Clearing.query.filter((Clearing.user_id == user.id) & (Clearing.term_id == term.id)).first()
 
         return {
-            "valid_points": valid_points,
-            "pending_points": pending_points,
-            "invalid_points": invalid_points
+            "is_cleared": clearing is not None,
+            "points": points
         }
+    
+    def get_clearing(self, user, term):
+        return Clearing.query.filter((Clearing.user_id == user.id) & (Clearing.term_id == term.id)).first()
+    
+    def clear_user_for_term(self, user, target, term):
+        if self.get_clearing(target, term):
+            raise TermClearingError("User already cleared for this term.")
+
+        points = self.get_point_summary(target, term)
+
+        available_points = points.valid_points + target.point_balance
+        if available_points < points.required_points:
+            raise InsufficientSWTDPointsError(points.lacking_points)
+    
+        target.point_balance += available_points - points.required_points
+
+        clearing = Clearing(
+            user_id=target.id,
+            term_id=term.id,
+            cleared_by=user.id
+        )
+
+        self.db.session.add(clearing)
+        self.db.session.commit()
+
+    def unclear_user_for_term(self, target, term):
+        points = self.get_point_summary(target, term)
+
+        clearing = self.get_clearing(target, term)
+        if not clearing:
+            raise TermClearingError("User has not been cleared for this term.")
+
+        self.db.session.delete(clearing)
+
+        target.point_balance -= points.valid_points - points.required_points
+
+        self.db.session.commit()
