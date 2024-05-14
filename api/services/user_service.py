@@ -1,14 +1,14 @@
 import json
 
 from ..models.user import User
-from ..models.clearing import Clearing
 from ..models.point_summary import PointSummary
 from ..exceptions import InvalidParameterError, InsufficientSWTDPointsError, TermClearingError
 
 class UserService:
-    def __init__(self, db, password_encoder_service):
+    def __init__(self, db, password_encoder_service, clearing_service):
         self.db = db
         self.password_encoder_service = password_encoder_service
+        self.clearing_service = clearing_service
 
     def create_user(self, employee_id, email, firstname, lastname, password, department=None):
         user = User(
@@ -112,18 +112,15 @@ class UserService:
     
     def get_term_summary(self, user, term):
         points = self.get_point_summary(user, term)
-        clearing = Clearing.query.filter((Clearing.user_id == user.id) & (Clearing.term_id == term.id)).first()
+        clearing = self.clearing_service.get_user_term_clearing(user.id, term.id)
 
         return {
             "is_cleared": clearing is not None,
             "points": points
         }
-    
-    def get_clearing(self, user, term):
-        return Clearing.query.filter((Clearing.user_id == user.id) & (Clearing.term_id == term.id)).first()
-    
+
     def clear_user_for_term(self, user, target, term):
-        if self.get_clearing(target, term):
+        if self.clearing_service.get_user_term_clearing(target.id, term.id):
             raise TermClearingError("User already cleared for this term.")
 
         points = self.get_point_summary(target, term)
@@ -131,27 +128,24 @@ class UserService:
         available_points = points.valid_points + target.point_balance
         if available_points < points.required_points:
             raise InsufficientSWTDPointsError(points.lacking_points)
-    
-        target.point_balance += available_points - points.required_points
+        
+        target.point_balance += points.excess_points - points.lacking_points
 
-        clearing = Clearing(
-            user_id=target.id,
-            term_id=term.id,
-            cleared_by=user.id
+        self.clearing_service.create_clearing(
+            target.id,
+            term.id,
+            user.id,
+            applied_points=points.lacking_points
         )
-
-        self.db.session.add(clearing)
-        self.db.session.commit()
 
     def unclear_user_for_term(self, target, term):
         points = self.get_point_summary(target, term)
 
-        clearing = self.get_clearing(target, term)
+        clearing = self.clearing_service.get_user_term_clearing(target.id, term.id)
         if not clearing:
             raise TermClearingError("User has not been cleared for this term.")
 
+        target.point_balance -= points.excess_points - clearing.applied_points
+
         self.db.session.delete(clearing)
-
-        target.point_balance -= points.valid_points - points.required_points
-
         self.db.session.commit()

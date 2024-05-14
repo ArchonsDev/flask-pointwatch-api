@@ -10,6 +10,7 @@ from .term_service import TermService
 from .swtd_service import SWTDService
 from .swtd_validation_service import SWTDValidatioNService
 from .notification_service import NotificationService
+from .clearing_service import ClearingService
 
 from .. import db, oauth, mail, socketio
 
@@ -18,7 +19,8 @@ jwt_service = JWTService()
 auth_service = AuthService(password_encoder_service, jwt_service)
 ft_service = FTService()
 mail_service = MailService(mail, jwt_service)
-user_service = UserService(db, password_encoder_service)
+clearing_service = ClearingService(db)
+user_service = UserService(db, password_encoder_service, clearing_service)
 ms_service = MSService(db, oauth, user_service)
 swtd_comment_service = SWTDCommentService(db)
 term_service = TermService(db)
