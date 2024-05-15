@@ -58,3 +58,35 @@ class TestSWTD(BaseTestCase):
         self.assertTrue('swtds' in data and len(data['swtds']) > 0)
         found = any(swtd['title'] == 'Sample SWTD' for swtd in data['swtds'])
         self.assertTrue(found, "Submitted SWTD form should be in the retrieved list")
+
+    def test_post_swtd_negative(self):
+        # Attempting to create a term with incomplete details
+        self.term_id = create_term(self.app, '1st Semester 2324', '01-24-2024', '05-30-2024')
+        headers = {
+            'Authorization': f'Bearer {self.user_token}',
+            'Content-Type': 'multipart/form-data'
+        }
+
+        # Incomplete data payload: Missing 'title', 'venue', 'date', and 'proof'
+        incomplete_data = {
+            'author_id': str(self.user_id),
+            'category': 'Seminar',
+            'role': 'Attendee',
+            'time_started': '00:00',
+            'time_finished': '01:00',
+            'points': 5,
+            'benefits': 'Lorem Ipsum',
+            'term_id': str(self.term_id)
+        }
+
+        response = self.client.post(self.uri, headers=headers, data=incomplete_data)
+
+        # Expecting a status code of 400 for bad request due to missing required fields
+        self.assertEqual(response.status_code, 400, "Should fail due to incomplete data submission")
+
+        # Verify that the response contains the specific error message for the first missing field
+        error_data = response.json
+        self.assertIn('error', error_data, "Response should contain an error key")
+        self.assertIn("'title' is required", error_data['error'], "Error message should include: 'title' is required")
+
+
