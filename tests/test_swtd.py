@@ -42,7 +42,6 @@ class TestSWTD(BaseTestCase):
         }
 
         response = self.client.post(self.uri, headers=headers, data=data)
-
         self.assertEqual(response.status_code, 200)
 
          # Retrieving the list of SWTD forms to verify the newly submitted form is present
