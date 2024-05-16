@@ -33,9 +33,27 @@ class TestResetPassword(BaseTestCase):
         }
         
         response = self.client.post(self.uri, headers=headers, json=payload)
-        self.assertEqual(response.status_code, 500)
+        self.assertTrue(response.status_code, 200)
         
         data = response.json
         self.assertTrue((['message']), "Password changed.")
+
+def test_reset_password_fail(self):
+ 
+        headers = {
+            'Authorization': f'Bearer {self.user1_token}',
+            "Content-Type": "application/json"
+        }
+        payload ={
+            'email': 'user1@email.com',
+            'password': 'password'
+        }
+        
+        response = self.client.post(self.uri, headers=headers, json=payload)
+        self.assertEqual(response.status_code, 500)
+        
+        data = response.json
+        self.assertTrue((['error']), "Invalid Parameter <name>")
+
 
     

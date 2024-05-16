@@ -31,4 +31,25 @@ def test_recovery_success(self):
 
     self.assertTrue(data['message']), 'Please check email for instructions on how to reset your password.'
 
- 
+
+def test_recovery_fail(self):
+    uri = '/auth/recovery'
+
+    payload = {
+        'email': ''
+    }
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    response = self.client.post(uri, headers=headers, json=payload)
+
+    # Assuming a failure would return a 400 status code (Bad Request)
+    self.assertEqual(response.status_code, 400)
+
+    data = response.json
+
+    # Check that the 'Error' key is in the response data and contains the expected message
+    self.assertIn('Error', data)
+    self.assertEqual(data['Error'], 'Place your email account.')
