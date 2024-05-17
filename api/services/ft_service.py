@@ -86,7 +86,7 @@ class FTService:
             c.drawString(cursor['x'], cursor['y'],'Date & Time')
             c.setFont(font_family, font_size)
 
-            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {datetime.now().strftime('%m-%d-%Y %I:%M %p')}')
+            c.drawString(cursor['x'] + width / 6, cursor['y'], f": {datetime.now().strftime('%m-%d-%Y %I:%M %p')}")
 
             cursor['y'] -= line_height
 
@@ -137,7 +137,7 @@ class FTService:
             c.drawString(cursor['x'], cursor['y'],'Term')
             c.setFont(font_family, font_size)
 
-            c.drawString(cursor['x'] + width / 15, cursor['y'], f': {term.name} ({term.start_date.strftime('%m-%d-%Y')} to {term.end_date.strftime('%m-%d-%Y')})')
+            c.drawString(cursor['x'] + width / 15, cursor['y'], f": {term.name} ({term.start_date.strftime('%m-%d-%Y')} to {term.end_date.strftime('%m-%d-%Y')})")
 
             cursor['y'] -= line_height
 
@@ -255,7 +255,7 @@ class FTService:
             c.drawString(cursor['x'], cursor['y'],'Date & Time')
             c.setFont(font_family, font_size)
 
-            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {datetime.now().strftime('%m-%d-%Y %I:%M %p')}')
+            c.drawString(cursor['x'] + width / 6, cursor['y'], f": {datetime.now().strftime('%m-%d-%Y %I:%M %p')}")
 
             cursor['y'] -= line_height
 
@@ -304,7 +304,7 @@ class FTService:
             c.drawString(cursor['x'], cursor['y'],'Term')
             c.setFont(font_family, font_size)
 
-            c.drawString(cursor['x'] + width / 15, cursor['y'], f': {term.name} ({term.start_date.strftime('%m-%d-%Y')} to {term.end_date.strftime('%m-%d-%Y')})')
+            c.drawString(cursor['x'] + width / 15, cursor['y'], f": {term.name} ({term.start_date.strftime('%m-%d-%Y')} to {term.end_date.strftime('%m-%d-%Y')})")
 
             cursor['y'] -= line_height * 2
 
@@ -396,7 +396,7 @@ class FTService:
             c.drawString(cursor['x'], cursor['y'],'Date & Time')
             c.setFont(font_family, font_size)
 
-            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {datetime.now().strftime('%m-%d-%Y %I:%M %p')}')
+            c.drawString(cursor['x'] + width / 6, cursor['y'], f": {datetime.now().strftime('%m-%d-%Y %I:%M %p')}")
 
             cursor['y'] -= line_height
 
@@ -445,7 +445,7 @@ class FTService:
             c.drawString(cursor['x'], cursor['y'],'Term')
             c.setFont(font_family, font_size)
 
-            c.drawString(cursor['x'] + width / 15, cursor['y'], f': {term.name} ({term.start_date.strftime('%m-%d-%Y')} to {term.end_date.strftime('%m-%d-%Y')})')
+            c.drawString(cursor['x'] + width / 15, cursor['y'], f": {term.name} ({term.start_date.strftime('%m-%d-%Y')} to {term.end_date.strftime('%m-%d-%Y')})")
 
             cursor['y'] -= line_height * 2
 
@@ -464,7 +464,7 @@ class FTService:
                 c.drawString(cursor['x'], cursor['y'], f'{user.employee_id}')
                 c.drawString(cursor['x'] + width / 7, cursor['y'], f'{user.lastname}, {user.firstname}')
                 c.drawString(cursor['x'] + width / 2.5, cursor['y'], f'{user.department}')
-                c.drawString(cursor['x'] + width / 1.8, cursor['y'], f'{clearing.date_cleared.strftime('%m-%d-%Y %I:%M %p')}')
+                c.drawString(cursor['x'] + width / 1.8, cursor['y'], f"{clearing.date_cleared.strftime('%m-%d-%Y %I:%M %p')}")
 
                 cursor['y'] -= line_height
 
