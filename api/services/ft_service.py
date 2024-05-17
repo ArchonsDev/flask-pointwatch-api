@@ -10,10 +10,11 @@ from ..models.user import User
 from ..services.term_service import TermService
 
 class FTService:
-    def __init__(self, term_service, clearing_service):
+    def __init__(self, term_service, clearing_service, user_service):
         self.data_dir = os.path.abspath('data')
         self.term_service = term_service
         self.clearing_service = clearing_service
+        self.user_service = user_service
 
     def save(self, user_id, swtd_id, file):
         user_fp = os.path.join(self.data_dir, str(user_id))
@@ -145,6 +146,49 @@ class FTService:
 
             is_cleared = self.clearing_service.get_user_term_clearing(user.id, term.id)
             c.drawString(cursor['x'] + width / 15, cursor['y'], f': {"CLEARED" if is_cleared else "NOT CLEARED"}')
+
+            cursor['y'] -= line_height * 2
+
+            points = self.user_service.get_point_summary(user, term)
+            c.setFont(font_family + "-Bold", font_size)
+            c.drawString(cursor['x'], cursor['y'],'Valid Points')
+            c.setFont(font_family, font_size)
+
+            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {points.valid_points}')
+
+            c.setFont(font_family + "-Bold", font_size)
+            c.drawString(cursor['x'] + width / 3, cursor['y'],'Required Points')
+            c.setFont(font_family, font_size)
+
+            c.drawString(cursor['x'] + width / 3 + width / 6, cursor['y'], f': {points.required_points}')
+
+            cursor['y'] -= line_height
+
+            c.setFont(font_family + "-Bold", font_size)
+            c.drawString(cursor['x'], cursor['y'],'Invalid Points')
+            c.setFont(font_family, font_size)
+
+            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {points.invalid_points}')
+
+            c.setFont(font_family + "-Bold", font_size)
+            c.drawString(cursor['x'] + width / 3, cursor['y'],'Lacking Points')
+            c.setFont(font_family, font_size)
+
+            c.drawString(cursor['x'] + width / 3 + width / 6, cursor['y'], f': {points.lacking_points}')
+
+            cursor['y'] -= line_height
+
+            c.setFont(font_family + "-Bold", font_size)
+            c.drawString(cursor['x'], cursor['y'],'Pending Points')
+            c.setFont(font_family, font_size)
+
+            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {points.pending_points}')
+
+            c.setFont(font_family + "-Bold", font_size)
+            c.drawString(cursor['x'] + width / 3, cursor['y'],'Excess Points')
+            c.setFont(font_family, font_size)
+
+            c.drawString(cursor['x'] + width / 3 + width / 6, cursor['y'], f': {points.excess_points}')
 
             cursor['y'] -= line_height * 2
 
