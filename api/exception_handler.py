@@ -3,7 +3,7 @@ from .controllers.base_controller import BaseController
 
 build_response = BaseController().build_response
 
-def handle_exception(e):
+def handle_exception(e: Exception):
     if isinstance(e, AccountUnavailableError):
         return build_response("Account unavailable.", 403)
     elif isinstance(e, AuthenticationError):

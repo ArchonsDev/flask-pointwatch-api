@@ -1,16 +1,23 @@
-import json
+from typing import Union, Any
 
-from ..models.user import User
-from ..models.clearing import Clearing
+import json
+from flask_sqlalchemy import SQLAlchemy
+
 from ..models.point_summary import PointSummary
+from ..models.swtd_form import SWTDForm
+from ..models.term import Term
+from ..models.user import User
+from ..services.password_encoder_service import PasswordEncoderService
+from ..services.clearing_service import ClearingService
 from ..exceptions import InvalidParameterError, InsufficientSWTDPointsError, TermClearingError
 
 class UserService:
-    def __init__(self, db, password_encoder_service):
+    def __init__(self, db: SQLAlchemy, password_encoder_service: PasswordEncoderService, clearing_service: ClearingService) -> None:
         self.db = db
         self.password_encoder_service = password_encoder_service
+        self.clearing_service = clearing_service
 
-    def create_user(self, employee_id, email, firstname, lastname, password, department=None):
+    def create_user(self, employee_id: str, email: str, firstname: str, lastname: str, password: str, department: str=None) -> User:
         user = User(
             employee_id=employee_id,
             email=email,
@@ -25,7 +32,7 @@ class UserService:
 
         return user
 
-    def get_user(self, id=None, email=None, employee_id=None):
+    def get_user(self, id: int=None, email: str=None, employee_id: str=None) -> Union[User, None]:
         query = User.query
 
         if employee_id:
@@ -38,7 +45,7 @@ class UserService:
 
         return user
 
-    def get_all_users(self, params=None):
+    def get_all_users(self, params: dict[str, Any]={}) -> list[User]:
         user_query = User.query
 
         for key, value in params.items():
@@ -53,7 +60,7 @@ class UserService:
   
         return user_query.all()
 
-    def update_user(self, user, **data):
+    def update_user(self, user: User, **data: dict[str, Any]) -> User:
         for key, value in data.items():
             # Ensure provided key is valid.
             if not hasattr(User, key):
@@ -67,11 +74,11 @@ class UserService:
         self.db.session.commit()
         return user
     
-    def delete_user(self, user):   
+    def delete_user(self, user) -> None:
         user.is_deleted = True
         self.db.session.commit()
 
-    def get_user_swtd_forms(self, user, start_date=None, end_date=None):
+    def get_user_swtd_forms(self, user: User, start_date: str=None, end_date: str=None) -> list[SWTDForm]:
         swtd_forms = user.swtd_forms
 
         if start_date:
@@ -82,7 +89,7 @@ class UserService:
 
         return swtd_forms
 
-    def get_point_summary(self, user, term) -> PointSummary:
+    def get_point_summary(self, user: User, term: Term) -> PointSummary:
         swtd_forms = list(filter(
             lambda form: (form.is_deleted == False) & 
             (form.date >= term.start_date) & 
@@ -110,20 +117,17 @@ class UserService:
 
         return points
     
-    def get_term_summary(self, user, term):
+    def get_term_summary(self, user: User, term: Term) -> dict[str, Any]:
         points = self.get_point_summary(user, term)
-        clearing = Clearing.query.filter((Clearing.user_id == user.id) & (Clearing.term_id == term.id)).first()
+        clearing = self.clearing_service.get_user_term_clearing(user.id, term.id)
 
         return {
             "is_cleared": clearing is not None,
             "points": points
         }
-    
-    def get_clearing(self, user, term):
-        return Clearing.query.filter((Clearing.user_id == user.id) & (Clearing.term_id == term.id)).first()
-    
-    def clear_user_for_term(self, user, target, term):
-        if self.get_clearing(target, term):
+
+    def clear_user_for_term(self, user: User, target: User, term: Term) -> None:
+        if self.clearing_service.get_user_term_clearing(target.id, term.id):
             raise TermClearingError("User already cleared for this term.")
 
         points = self.get_point_summary(target, term)
@@ -131,27 +135,24 @@ class UserService:
         available_points = points.valid_points + target.point_balance
         if available_points < points.required_points:
             raise InsufficientSWTDPointsError(points.lacking_points)
-    
-        target.point_balance += available_points - points.required_points
+        
+        target.point_balance += points.excess_points - points.lacking_points
 
-        clearing = Clearing(
-            user_id=target.id,
-            term_id=term.id,
-            cleared_by=user.id
+        self.clearing_service.create_clearing(
+            target.id,
+            term.id,
+            user.id,
+            applied_points=points.lacking_points
         )
 
-        self.db.session.add(clearing)
-        self.db.session.commit()
-
-    def unclear_user_for_term(self, target, term):
+    def unclear_user_for_term(self, target: User, term: Term) -> None:
         points = self.get_point_summary(target, term)
 
-        clearing = self.get_clearing(target, term)
+        clearing = self.clearing_service.get_user_term_clearing(target.id, term.id)
         if not clearing:
             raise TermClearingError("User has not been cleared for this term.")
 
+        target.point_balance -= points.excess_points - clearing.applied_points
+
         self.db.session.delete(clearing)
-
-        target.point_balance -= points.valid_points - points.required_points
-
         self.db.session.commit()

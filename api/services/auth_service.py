@@ -1,9 +1,15 @@
+from typing import Union
+
+from ..models.user import User
+from ..services.password_encoder_service import PasswordEncoderService
+from ..services.jwt_service import JWTService
+
 class AuthService:
-    def __init__(self, password_encoder_service, jwt_service):
+    def __init__(self, password_encoder_service: PasswordEncoderService, jwt_service: JWTService) -> None:
         self.password_encoder_service = password_encoder_service
         self.jwt_service = jwt_service
 
-    def has_permissions(self, user, minimum_auth=None):
+    def has_permissions(self, user: User, minimum_auth: str=None) -> bool:
         auth_levels = {
             'staff': 1, 
             'admin': 2,
@@ -21,7 +27,7 @@ class AuthService:
 
         return user_auth_level >= min_auth_level
 
-    def login(self, user, password):
+    def login(self, user: User, password: str) -> Union[str, None]:
         # Esnure that the user account is not deleted/disabled.
         if user.is_deleted:
             return None

@@ -1,3 +1,5 @@
+from typing import Any
+
 from .. import db
 
 class User(db.Model):
@@ -25,7 +27,7 @@ class User(db.Model):
     # For Point tracking
     point_balance = db.Column(db.Float, nullable=False, default=0)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "employee_id": self.employee_id,

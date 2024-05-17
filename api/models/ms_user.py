@@ -1,3 +1,5 @@
+from typing import Any
+
 from .. import db
 class MSUser(db.Model):
     __tablename__ = 'tblmsusers'
@@ -6,7 +8,7 @@ class MSUser(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('tblusers.id'), nullable=False, unique=True)
     access_token = db.Column(db.TEXT, nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "user_id": self.user_id
