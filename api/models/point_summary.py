@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 from typing import Optional
+from dataclasses import dataclass
 
 @dataclass
 class PointSummary(object):
@@ -9,9 +9,9 @@ class PointSummary(object):
     required_points: Optional[float] = 0.0
 
     @property
-    def excess_points(self):
+    def excess_points(self) -> float:
         return max(0, self.valid_points - self.required_points)
     
     @property
-    def lacking_points(self):
+    def lacking_points(self) -> float:
         return max(0, self.required_points - self.valid_points)

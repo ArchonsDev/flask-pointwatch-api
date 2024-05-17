@@ -1,15 +1,16 @@
+from typing import Any
+from datetime import datetime
 import os
 
-from flask import Blueprint, request, Response
+from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
-from datetime import datetime
 
 from .base_controller import BaseController
 from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service, swtd_comment_service, term_service
 from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError, TermNotFoundError, AuthenticationError
 
 class SWTDController(Blueprint, BaseController):
-    def __init__(self, name, import_name, **kwargs):
+    def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
         super().__init__(name, import_name, **kwargs)
 
         self.swtd_service = swtd_service
@@ -23,7 +24,7 @@ class SWTDController(Blueprint, BaseController):
 
         self.map_routes()
 
-    def map_routes(self):
+    def map_routes(self) -> None:
         self.route('/', methods=['GET', 'POST'])(self.index)
         self.route('/<int:form_id>', methods=['GET', 'PUT', 'DELETE'])(self.process_swtd)
         self.route('/<int:form_id>/comments', methods=['GET', 'POST'])(self.process_comments)
@@ -32,7 +33,7 @@ class SWTDController(Blueprint, BaseController):
         self.route('/<int:form_id>/validation/proof', methods=['GET', 'PUT'])(self.show_proof)
 
     @jwt_required()
-    def index(self):
+    def index(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -111,7 +112,7 @@ class SWTDController(Blueprint, BaseController):
             return self.build_response(swtd.to_dict(), 200)
 
     @jwt_required()
-    def process_swtd(self, form_id):
+    def process_swtd(self, form_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -154,7 +155,7 @@ class SWTDController(Blueprint, BaseController):
             return self.build_response({"message": "SWTD Form deleted."}, 200)
     
     @jwt_required()
-    def process_comments(self, form_id):
+    def process_comments(self, form_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -188,7 +189,7 @@ class SWTDController(Blueprint, BaseController):
             return self.build_response({"comments": [comment.to_dict() for comment in swtd.comments]}, 200)
     
     @jwt_required()
-    def handle_comment(self, form_id, comment_id):
+    def handle_comment(self, form_id: int, comment_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -227,7 +228,7 @@ class SWTDController(Blueprint, BaseController):
             return self.build_response({"message": "Comment deleted."}, 200)
     
     @jwt_required()
-    def process_validation(self, form_id):
+    def process_validation(self, form_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -261,7 +262,7 @@ class SWTDController(Blueprint, BaseController):
             return self.build_response(swtd.validation.to_dict(), 200) # TODO: Verify this is updated.
 
     @jwt_required()
-    def show_proof(self, form_id):
+    def show_proof(self, form_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -298,5 +299,5 @@ class SWTDController(Blueprint, BaseController):
 
             return self.build_response(swtd.to_dict(), 200)
 
-def setup(app):
+def setup(app: Flask) -> None:
     app.register_blueprint(SWTDController('swtd', __name__, url_prefix='/swtds'))

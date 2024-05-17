@@ -1,3 +1,5 @@
+from typing import Any
+
 from .. import db
 
 class SWTDForm(db.Model):
@@ -21,7 +23,7 @@ class SWTDForm(db.Model):
     # Link to SWTDComment
     comments = db.relationship('SWTDComment', backref='swtd_form', lazy=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "author_id": self.author_id,

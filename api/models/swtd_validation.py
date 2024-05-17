@@ -1,3 +1,5 @@
+from typing import Any
+
 from .. import db
 
 class SWTDValidation(db.Model):
@@ -9,7 +11,7 @@ class SWTDValidation(db.Model):
     validator_id = db.Column(db.Integer, db.ForeignKey('tblusers.id'), nullable=True)
     validated_on = db.Column(db.DateTime, nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "swtd_id": self.swtd_id,
             "status": self.status,

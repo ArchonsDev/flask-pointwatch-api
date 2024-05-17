@@ -1,13 +1,15 @@
-from flask import Blueprint, request, Response
-from flask_jwt_extended import jwt_required
+from typing import Any
 from datetime import datetime
+
+from flask import Blueprint, request, Response, Flask
+from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, auth_service, ms_service, term_service
 from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError
 
 class UserController(Blueprint, BaseController):
-    def __init__(self, name, import_name, **kwargs):
+    def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
         super().__init__(name, import_name, **kwargs)
 
         self.jwt_service = jwt_service
@@ -18,7 +20,7 @@ class UserController(Blueprint, BaseController):
 
         self.map_routes()
 
-    def map_routes(self):
+    def map_routes(self) -> None:
         self.route('/', methods=['GET'])(self.get_all_users)
         self.route('/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])(self.process_user)
         self.route('/<int:user_id>/points', methods=['GET'])(self.get_points)
@@ -27,7 +29,7 @@ class UserController(Blueprint, BaseController):
         self.route('/<int:user_id>/terms/<int:term_id>', methods=['GET', 'POST', 'DELETE'])(self.handle_clearing)
 
     @jwt_required()
-    def get_all_users(self):
+    def get_all_users(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
         # Ensure that the requester exists.
@@ -47,7 +49,7 @@ class UserController(Blueprint, BaseController):
         return self.build_response({"users": [user.to_dict() for user in users]}, 200)
 
     @jwt_required()
-    def process_user(self, user_id):
+    def process_user(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user('email', email)
         # Ensure that the requester exists.
@@ -87,7 +89,7 @@ class UserController(Blueprint, BaseController):
             return self.build_response({"message": "User deleted."}, 200)
     
     @jwt_required()
-    def get_points(self, user_id):
+    def get_points(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user('email', email)
         # Ensure that the requester exists.
@@ -119,7 +121,7 @@ class UserController(Blueprint, BaseController):
             return self.build_response(points, 200)
 
     @jwt_required()
-    def get_avatar(self, user_id):
+    def get_avatar(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
         # Ensure the requester is authorized.
@@ -144,7 +146,7 @@ class UserController(Blueprint, BaseController):
         raise ResourceNotFoundError()
 
     @jwt_required()
-    def get_user_swtds(self, user_id):
+    def get_user_swtds(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
         # Ensure the requester is authorized.
@@ -179,7 +181,7 @@ class UserController(Blueprint, BaseController):
             return self.build_response({"swtd_forms": [form.to_dict() for form in swtd_forms]}, 200)
 
     @jwt_required()
-    def handle_clearing(self, user_id, term_id):
+    def handle_clearing(self, user_id: int, term_id: int) -> Response:
         email = jwt_service.get_identity_from_token()
 
         requester = user_service.get_user(email=email)
@@ -213,5 +215,5 @@ class UserController(Blueprint, BaseController):
 
             return self.build_response({'message': 'Employee clearance revoked for term.'}, 200)
 
-def setup(app):
+def setup(app: Flask) -> None:
     app.register_blueprint(UserController('user', __name__, url_prefix='/users'))
