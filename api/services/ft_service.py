@@ -63,6 +63,7 @@ class FTService:
         margin_top, margin_right, margin_bottom, margin_left = [72, 72, 72, 72]
 
         c = canvas.Canvas(buffer, pagesize=letter)
+        c.setTitle(f"{user.employee_id}_SWTDReport")
         c.setFont(font_family, font_size)
 
         term_ids = list({form.term_id for form in user.swtd_forms})
@@ -85,7 +86,7 @@ class FTService:
             c.drawString(cursor['x'], cursor['y'],'Date & Time')
             c.setFont(font_family, font_size)
 
-            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {datetime.now().strftime('%m-%d-%Y %I: %M %p')}')
+            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {datetime.now().strftime('%m-%d-%Y %I:%M %p')}')
 
             cursor['y'] -= line_height
 
@@ -231,6 +232,7 @@ class FTService:
         margin_top, margin_right, margin_bottom, margin_left = [72, 72, 72, 72]
 
         c = canvas.Canvas(buffer, pagesize=letter)
+        c.setTitle(f"{user.employee_id}_ValidationReport")
         c.setFont(font_family, font_size)
 
         term_ids = list({validation.form.term_id for validation in user.validated_forms})
@@ -369,6 +371,7 @@ class FTService:
         margin_top, margin_right, margin_bottom, margin_left = [72, 72, 72, 72]
 
         c = canvas.Canvas(buffer, pagesize=letter)
+        c.setTitle(f"{user.employee_id}_AdminReport")
         c.setFont(font_family, font_size)
 
         cursor = {'x': margin_left, 'y': height - margin_top}
@@ -393,7 +396,7 @@ class FTService:
             c.drawString(cursor['x'], cursor['y'],'Date & Time')
             c.setFont(font_family, font_size)
 
-            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {datetime.now().strftime('%m-%d-%Y %I: %M %p')}')
+            c.drawString(cursor['x'] + width / 6, cursor['y'], f': {datetime.now().strftime('%m-%d-%Y %I:%M %p')}')
 
             cursor['y'] -= line_height
 
