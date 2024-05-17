@@ -30,6 +30,7 @@ class UserController(Blueprint, BaseController):
         self.route('/<int:user_id>/terms/<int:term_id>', methods=['GET', 'POST', 'DELETE'])(self.handle_clearing)
         self.route('/<int:user_id>/swtds/export', methods=['GET'])(self.export_swtd_data)
         self.route('/<int:user_id>/validations/export', methods=['GET'])(self.export_staff_data)
+        self.route('/<int:user_id>/clearings/export', methods=['GET'])(self.export_admin_data)
 
     @jwt_required()
     def get_all_users(self) -> Response:
@@ -265,6 +266,33 @@ class UserController(Blueprint, BaseController):
 
             headers = {
                 'Content-Disposition': f'attachment; filename="{user.employee_id}_ValidationReport.pdf"'
+            }
+
+            return Response(content, mimetype='application/pdf', status=200, headers=headers)
+
+    @jwt_required()
+    def export_admin_data(self, user_id: int) -> Response:
+        email = self.jwt_service.get_identity_from_token()
+        requester = self.user_service.get_user(email=email)
+
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+        
+        user = user_service.get_user(id=user_id)
+        if not user or (user and user.is_deleted):
+            raise UserNotFoundError()
+        
+        if not self.auth_service.has_permissions(user, minimum_auth='admin'):
+            raise UserNotFoundError()
+        
+        if request.method == 'GET':
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+                raise InsufficientPermissionsError("Cannot export staff validation data.")
+
+            content = ft_service.dump_admin_clearing_data(requester, user)
+
+            headers = {
+                'Content-Disposition': f'attachment; filename="{user.employee_id}_AdminReport.pdf"'
             }
 
             return Response(content, mimetype='application/pdf', status=200, headers=headers)
