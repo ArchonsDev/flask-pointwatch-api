@@ -5,7 +5,7 @@ from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
-from ..services import jwt_service, user_service, auth_service, ms_service, term_service
+from ..services import jwt_service, user_service, auth_service, ms_service, term_service, ft_service
 from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError
 
 class UserController(Blueprint, BaseController):
@@ -17,6 +17,7 @@ class UserController(Blueprint, BaseController):
         self.auth_service = auth_service
         self.ms_service = ms_service
         self.term_service = term_service
+        self.ft_service = ft_service
 
         self.map_routes()
 
@@ -27,6 +28,7 @@ class UserController(Blueprint, BaseController):
         self.route('/<int:user_id>/avatar', methods=['GET'])(self.get_avatar)
         self.route('/<int:user_id>/swtds', methods=['GET'])(self.get_user_swtds)
         self.route('/<int:user_id>/terms/<int:term_id>', methods=['GET', 'POST', 'DELETE'])(self.handle_clearing)
+        self.route('/<int:user_id>/swtds/export', methods=['GET'])(self.export_swtd_data)
 
     @jwt_required()
     def get_all_users(self) -> Response:
@@ -214,6 +216,31 @@ class UserController(Blueprint, BaseController):
             self.user_service.unclear_user_for_term(user, term)
 
             return self.build_response({'message': 'Employee clearance revoked for term.'}, 200)
+        
+    @jwt_required()
+    def export_swtd_data(self, user_id: int) -> None:
+        email = self.jwt_service.get_identity_from_token()
+        requester = self.user_service.get_user(email=email)
+
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+        
+        user = user_service.get_user(id=user_id)
+        if not user or (user and user.is_deleted):
+            raise UserNotFoundError()
+        
+        if request.method == 'GET':
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+                raise InsufficientPermissionsError("Cannot export user SWTD data.")
+
+            swtd_forms = user.swtd_forms
+            content = ft_service.dump_user_swtd_data(requester, user)
+
+            headers = {
+                'Content-Disposition': f'attachment; filename="{user.employee_id}_SWTDReport.pdf"'
+            }
+
+            return Response(content, mimetype='application/pdf', status=200, headers=headers)
 
 def setup(app: Flask) -> None:
     app.register_blueprint(UserController('user', __name__, url_prefix='/users'))
