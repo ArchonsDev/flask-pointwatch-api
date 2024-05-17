@@ -1,13 +1,15 @@
-from flask import Blueprint, request
-from flask_jwt_extended import jwt_required
+from typing import Any
 from datetime import datetime
+
+from flask import Blueprint, request, Response, Flask
+from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, term_service, auth_service
 from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, MissingRequiredPropertyError, TermNotFoundError, AuthenticationError
 
 class TermController(Blueprint, BaseController):
-    def __init__(self, name, import_name, **kwargs):
+    def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
         super().__init__(name, import_name, **kwargs)
 
         self.jwt_service = jwt_service
@@ -17,13 +19,13 @@ class TermController(Blueprint, BaseController):
 
         self.map_routes()
 
-    def map_routes(self):
+    def map_routes(self) -> None:
         self.route('/', methods=['GET', 'POST'])(self.index)
         self.route('/<int:term_id>', methods=['GET'])(self.handle_term)
         self.route('/<int:term_id>/swtds', methods=['GET'])(self.process_terms)
 
     @jwt_required()
-    def index(self):
+    def index(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -65,7 +67,7 @@ class TermController(Blueprint, BaseController):
             return self.build_response(term.to_dict(), 200)
     
     @jwt_required
-    def handle_term(self, term_id):
+    def handle_term(self, term_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -81,7 +83,7 @@ class TermController(Blueprint, BaseController):
             return self.build_response(term.to_dict(), 200)
 
     @jwt_required()
-    def process_terms(self, term_id):
+    def process_terms(self, term_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
 
@@ -109,5 +111,5 @@ class TermController(Blueprint, BaseController):
 
             return self.build_response([swtd_form.to_dict() for swtd_form in swtd_forms], 200)
 
-def setup(app):
+def setup(app: Flask) -> None:
     app.register_blueprint(TermController('term', __name__, url_prefix='/terms'))

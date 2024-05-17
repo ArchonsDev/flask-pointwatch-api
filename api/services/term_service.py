@@ -1,11 +1,15 @@
+from typing import Union, Any
+
+from flask_sqlalchemy import SQLAlchemy
+
 from ..models.term import Term
 from ..exceptions import InvalidParameterError
 
 class TermService:
-    def __init__(self, db):
+    def __init__(self, db: SQLAlchemy) -> None:
         self.db = db
 
-    def check_date_availability(self, start_date, end_date):
+    def check_date_availability(self, start_date: str, end_date: str) -> bool:
         overlapping_terms = Term.query.filter(
             (Term.start_date <= end_date) &
             (Term.end_date >= start_date) &
@@ -14,7 +18,7 @@ class TermService:
         
         return True if overlapping_terms else False
 
-    def create_term(self, name, start_date, end_date):
+    def create_term(self, name: str, start_date: str, end_date: str) -> Term:
         term = Term(
             name=name,
             start_date=start_date,
@@ -25,10 +29,10 @@ class TermService:
         self.db.session.commit()
         return term
 
-    def get_term(self, id):
+    def get_term(self, id: int) -> Union[Term, None]:
         return Term.query.get(id)
 
-    def get_all_terms(self, **params):
+    def get_all_terms(self, **params: dict[str, Any]) -> list[Term]:
         term_query = Term.query
 
         for key, value in params.items():
@@ -46,7 +50,7 @@ class TermService:
 
         return term_query.all()
 
-    def update_term(self, term, **data):
+    def update_term(self, term: Term, **data: dict[str, Any]) -> Term:
         for key, value in data.items():
             # Ensure provided key is valid.
             if not hasattr(Term, key):
@@ -57,6 +61,6 @@ class TermService:
         self.db.session.commit()
         return term
 
-    def delete_term(self, term):
+    def delete_term(self, term: Term) -> None:
         term.is_deleted = True
         self.db.session.commit()

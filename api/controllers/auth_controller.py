@@ -1,8 +1,8 @@
-from __future__ import annotations
+from typing import Any
 
 import random
 import string
-from flask import Blueprint, request, url_for, redirect
+from flask import Blueprint, request, url_for, redirect, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
@@ -11,7 +11,7 @@ from ..services import auth_service, ms_service, user_service, jwt_service, pass
 from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
 
 class AuthController(Blueprint, BaseController):
-    def __init__(self, name, import_name, **kwargs):
+    def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
         super().__init__(name, import_name, **kwargs)
         
         self.auth_service = auth_service
@@ -23,7 +23,7 @@ class AuthController(Blueprint, BaseController):
 
         self.map_routes()
 
-    def map_routes(self):
+    def map_routes(self) -> None:
         self.route('/register', methods=['POST'])(self.create_account)
         self.route('/login', methods=['POST'])(self.login)
         self.route('/recovery', methods=['POST'])(self.recover_account)
@@ -31,7 +31,7 @@ class AuthController(Blueprint, BaseController):
         self.route('/microsoft')(self.microsoft)
         self.route('/authorize')(self.authorize)
 
-    def create_account(self):
+    def create_account(self) -> Response:
         data = request.json
         # Define required fields
         required_fields = [
@@ -70,7 +70,7 @@ class AuthController(Blueprint, BaseController):
 
         return self.build_response(response, 200)
 
-    def login(self):
+    def login(self) -> Response:
         data = request.json
         # Define required fields
         required_fields = [
@@ -100,7 +100,7 @@ class AuthController(Blueprint, BaseController):
 
         return self.build_response(response, 200)
 
-    def recover_account(self):
+    def recover_account(self) -> Response:
         data = request.json
         # Define required fields
         required_fields = [
@@ -117,7 +117,7 @@ class AuthController(Blueprint, BaseController):
         return self.build_response({"message": "Please check email for instructions on how to reset your password."}, 200)
 
     @jwt_required()
-    def reset_password(self):
+    def reset_password(self) -> Response:
         email = self.jwt_service.get_jwt_identity()
         data = request.json
         # Define required fields
@@ -136,10 +136,10 @@ class AuthController(Blueprint, BaseController):
         self.user_service.update_user(user, password=data.get('password'))
         return self.build_response({"message": "Password changed."}, 200)
 
-    def microsoft(self):
+    def microsoft(self) -> Response:
         return oauth.microsoft.authorize_redirect(redirect_uri=url_for('auth.authorize', _external=True))
 
-    def authorize(self):
+    def authorize(self) -> Response:
         on_fail_redirect_url = 'http://localhost:3000/internalerror' # TODO: Change to actual frontend URL
         on_succ_redirect_url = 'http://localhost:3000/authorized?token={token}&user={user_id}'
 
@@ -175,5 +175,5 @@ class AuthController(Blueprint, BaseController):
         user_id = self.jwt_service.generate_token(user.id)
         return redirect(on_succ_redirect_url.format(token=token, user_id=user_id))
 
-def setup(app):
+def setup(app: Flask) -> None:
     app.register_blueprint(AuthController('auth', __name__, url_prefix='/auth'))

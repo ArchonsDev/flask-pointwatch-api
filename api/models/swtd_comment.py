@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime
 
 from .. import db
@@ -13,7 +14,7 @@ class SWTDComment(db.Model):
     is_edited = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "message": self.message,

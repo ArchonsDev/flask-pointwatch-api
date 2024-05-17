@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime
 
 from .. import db
@@ -13,7 +14,7 @@ class Term(db.Model):
     # Link to SWTDForm
     swtd_forms = db.relationship('SWTDForm', backref='term', lazy=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
