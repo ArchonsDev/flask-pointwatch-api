@@ -24,6 +24,9 @@ class ClearingService(object):
     def get_clearing_by_id(self, id: int) -> Union[Clearing, None]:
         return Clearing.query.get(id)
     
+    def get_clearing_by_clearer_id(self, id: int) -> list[Clearing]:
+        return Clearing.query.filter(Clearing.cleared_by == id).all()
+    
     def get_user_term_clearing(self, user_id: int, term_id: int) -> Union[Clearing, None]:
         return Clearing.query.filter((Clearing.user_id == user_id) & (Clearing.term_id == term_id)).first()
 

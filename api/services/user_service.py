@@ -45,7 +45,7 @@ class UserService:
 
         return user
 
-    def get_all_users(self, params: dict[str, Any]=None) -> list[User]:
+    def get_all_users(self, params: dict[str, Any]={}) -> list[User]:
         user_query = User.query
 
         for key, value in params.items():
