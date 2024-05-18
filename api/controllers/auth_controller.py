@@ -118,7 +118,7 @@ class AuthController(Blueprint, BaseController):
 
     @jwt_required()
     def reset_password(self) -> Response:
-        email = self.jwt_service.get_jwt_identity()
+        email = self.jwt_service.get_identity_from_token()
         data = request.json
         # Define required fields
         required_fields = [
