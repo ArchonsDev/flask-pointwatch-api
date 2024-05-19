@@ -201,7 +201,7 @@ class UserController(Blueprint, BaseController):
             raise TermNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot get user term data.")
     
             term_summary = user_service.get_term_summary(user, term)
