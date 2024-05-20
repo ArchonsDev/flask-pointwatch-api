@@ -10,6 +10,7 @@ class Term(db.Model):
     name = db.Column(db.String(255), nullable=False)
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
+    is_sem = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     # Link to SWTDForm
     swtd_forms = db.relationship('SWTDForm', backref='term', lazy=True)
@@ -20,5 +21,6 @@ class Term(db.Model):
             "name": self.name,
             "start_date": self.start_date.strftime("%m-%d-%Y"),
             "end_date": self.end_date.strftime("%m-%d-%Y"),
+            "is_sem": self.is_sem,
             "is_ongoing": self.start_date <= datetime.now().date() and self.end_date >= datetime.now().date()
         }
