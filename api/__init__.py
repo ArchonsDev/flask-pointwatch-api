@@ -36,7 +36,8 @@ def create_app(testing=False):
         app,
         namespaces=[
             '/notifications',
-        ]
+        ],
+        cors_allowed_origins="*"
     )
 
     with app.app_context():
