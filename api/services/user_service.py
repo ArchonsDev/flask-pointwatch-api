@@ -113,7 +113,10 @@ class UserService:
 
         # Compute LACKING points
         with open('point_requirements.json', 'r') as f:
-            points.required_points = json.load(f).get(user.department, 0)
+            POINT_REQ = json.load(f)
+            TERM_TYPE_REQ = POINT_REQ.get(term.type)
+
+            points.required_points = TERM_TYPE_REQ.get(user.department, 0)
 
         return points
     

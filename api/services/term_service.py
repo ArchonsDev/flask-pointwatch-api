@@ -18,12 +18,12 @@ class TermService:
         
         return True if overlapping_terms else False
 
-    def create_term(self, name: str, start_date: str, end_date: str, **data) -> Term:
+    def create_term(self, name: str, start_date: str, end_date: str, type: str) -> Term:
         term = Term(
             name=name,
             start_date=start_date,
             end_date=end_date,
-            **data
+            type=type
         )
 
         self.db.session.add(term)

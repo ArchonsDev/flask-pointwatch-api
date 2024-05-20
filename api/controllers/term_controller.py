@@ -43,7 +43,8 @@ class TermController(Blueprint, BaseController):
             required_fields = [
                 'name',
                 'start_date',
-                'end_date'
+                'end_date',
+                'type'
             ]
 
             self.check_fields(data, required_fields)
@@ -62,7 +63,7 @@ class TermController(Blueprint, BaseController):
                 data.get('name'),
                 start_date,
                 end_date,
-                is_sem=data.get('is_sem')
+                data.get('term').upper()
             )
 
             return self.build_response(term.to_dict(), 200)
