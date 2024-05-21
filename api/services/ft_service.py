@@ -375,7 +375,8 @@ class FTService:
         c.setFont(font_family, font_size)
 
         clearings = self.clearing_service.get_clearing_by_clearer_id(user.id)
-        users = [self.user_service.get_user(id=clearing.user_id) for clearing in clearings]
+        user_ids = list({clearing.user_id for clearing in clearings})
+        users = [self.user_service.get_user(id=id) for id in user_ids]
         term_ids = list({clearing.term_id for clearing in clearings})
         terms = [self.term_service.get_term(id) for id in term_ids]
 
