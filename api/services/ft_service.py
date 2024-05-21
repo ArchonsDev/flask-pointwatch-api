@@ -374,14 +374,14 @@ class FTService:
         c.setTitle(f"{user.employee_id}_AdminReport")
         c.setFont(font_family, font_size)
 
-        cursor = {'x': margin_left, 'y': height - margin_top}
-
         clearings = self.clearing_service.get_clearing_by_clearer_id(user.id)
         users = [self.user_service.get_user(id=clearing.user_id) for clearing in clearings]
         term_ids = list({clearing.term_id for clearing in clearings})
         terms = [self.term_service.get_term(id) for id in term_ids]
 
         for term in terms:
+            cursor = {'x': margin_left, 'y': height - margin_top}
+            
             c.setFont(font_family + "-Bold", font_size)
             c.drawString(cursor['x'], cursor['y'], "PointWatch: Admin Term Clearing Report")
             c.setFont(font_family, font_size)
