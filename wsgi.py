@@ -7,7 +7,7 @@ if __name__ == '__main__':
     import platform
 
     if platform.system() == 'Windows':
-        import socketio
+        from api import socketio
 
         socketio.run(app, debug=True)
     else:
