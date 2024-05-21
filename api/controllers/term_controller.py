@@ -21,7 +21,7 @@ class TermController(Blueprint, BaseController):
 
     def map_routes(self) -> None:
         self.route('/', methods=['GET', 'POST'])(self.index)
-        self.route('/<int:term_id>', methods=['GET'])(self.handle_term)
+        self.route('/<int:term_id>', methods=['GET', 'PUT', 'DELETE'])(self.handle_term)
         self.route('/<int:term_id>/swtds', methods=['GET'])(self.process_terms)
 
     @jwt_required()
@@ -43,7 +43,8 @@ class TermController(Blueprint, BaseController):
             required_fields = [
                 'name',
                 'start_date',
-                'end_date'
+                'end_date',
+                'type'
             ]
 
             self.check_fields(data, required_fields)
@@ -61,12 +62,13 @@ class TermController(Blueprint, BaseController):
             term = self.term_service.create_term(
                 data.get('name'),
                 start_date,
-                end_date
+                end_date,
+                data.get('type').upper()
             )
 
             return self.build_response(term.to_dict(), 200)
     
-    @jwt_required
+    @jwt_required()
     def handle_term(self, term_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
@@ -81,6 +83,28 @@ class TermController(Blueprint, BaseController):
 
         if request.method == 'GET':            
             return self.build_response(term.to_dict(), 200)
+        if request.method == 'PUT':
+            data = {**request.json}
+
+            try:
+                date_fmt = '%m-%d-%Y'
+
+                if data.get('start_date'):
+                    start_date = datetime.strptime(data.get('start_date'), date_fmt)
+                    data['start_date'] = start_date
+
+                if data.get('end_date'):
+                    end_date = datetime.strptime(data.get('end_date'), date_fmt)
+                    data['end_date'] = end_date
+            except Exception:
+                raise InvalidDateTimeFormat()
+            term = self.term_service.update_term(term, **data)
+
+            return self.build_response(term.to_dict(), 200)
+        if request.method == 'DELETE':
+            self.term_service.delete_term(term)
+            
+            return self.build_response({"message": "Term deleted"}, 200)
 
     @jwt_required()
     def process_terms(self, term_id: int) -> Response:
