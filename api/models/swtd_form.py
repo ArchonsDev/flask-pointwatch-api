@@ -1,4 +1,6 @@
-from . import db
+from typing import Any
+
+from .. import db
 
 class SWTDForm(db.Model):
     __tablename__ = 'tblswtdforms'
@@ -12,11 +14,16 @@ class SWTDForm(db.Model):
     date = db.Column(db.Date, nullable=False)
     time_started = db.Column(db.Time, nullable=False)
     time_finished = db.Column(db.Time, nullable=False)
-    points = db.Column(db.Integer, nullable=False)
+    points = db.Column(db.Float, nullable=False)
     benefits = db.Column(db.String(255), nullable=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
+    term_id = db.Column(db.Integer, db.ForeignKey('tblterms.id'), nullable=False)
+    # Link to SWTDValidation
+    validation = db.relationship('SWTDValidation', backref='form', uselist=False, lazy=True)
+    # Link to SWTDComment
+    comments = db.relationship('SWTDComment', backref='swtd_form', lazy=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "author_id": self.author_id,
@@ -30,4 +37,6 @@ class SWTDForm(db.Model):
             "points": self.points,
             "benefits": self.benefits,
             "is_deleted": self.is_deleted,
+            "validation": self.validation.to_dict() if self.validation else None,
+            "term": self.term.to_dict()
         }

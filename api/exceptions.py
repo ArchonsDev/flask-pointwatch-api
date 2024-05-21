@@ -19,6 +19,11 @@ class InvalidParameterError(Exception):
 class InsufficientPermissionsError(Exception):
     pass
 
+class InsufficientSWTDPointsError(Exception):
+    def __init__(self, points):
+        super().__init__()
+        self.points = points
+
 class MissingRequiredPropertyError(Exception):
     def __init__(self, property):
         super().__init__()
@@ -27,7 +32,18 @@ class MissingRequiredPropertyError(Exception):
 class ResourceNotFoundError(Exception):
     pass
 
+class SWTDCommentNotFoundError(Exception):
+    pass
+
 class SWTDFormNotFoundError(Exception):
+    pass
+
+class TermClearingError(Exception):
+    def __init__(self, message):
+        super().__init__()
+        self.message = message
+
+class TermNotFoundError(Exception):
     pass
 
 class UserNotFoundError(Exception):

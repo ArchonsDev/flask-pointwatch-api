@@ -1,19 +1,24 @@
 from flask import current_app
-from flask_mail import Message
+from flask_mail import Message, Mail
 
-from . import mail, jwt_service
+from ..services.jwt_service import JWTService
 
-def send_mail(subject, recipients, body):
-    msg = Message(subject, sender='mail.wildpark@gmail.com', recipients=recipients)
-    msg.body = body
+class MailService:
+    def __init__(self, mail: Mail, jwt_service: JWTService) -> None:
+        self.mail = mail
+        self.jwt_service = jwt_service
 
-    mail.send(msg)
+    def send_mail(self, subject: str, recipients: list[str], body: str) -> None:
+        msg = Message(subject, sender='mail.wildpark@gmail.com', recipients=recipients)
+        msg.body = body
 
-def send_recovery_mail(email, firstname):
-    token = jwt_service.generate_token(email)
+        self.mail.send(msg)
 
-    with current_app.open_resource('templates/account_recovery_instructions_template.txt', 'r') as f:
-        mail_template = f.read()
+    def send_recovery_mail(self, email: str, firstname: str) -> None:
+        token = self.jwt_service.generate_token(email)
 
-    mail_body = mail_template.format(username=firstname, token=token)
-    send_mail('Account Recovery | PointWatch', [email,], mail_body)
+        with current_app.open_resource('templates/account_recovery_instructions_template.txt', 'r') as f:
+            mail_template = f.read()
+
+        mail_body = mail_template.format(username=firstname, token=token)
+        self.send_mail('Account Recovery | PointWatch', [email,], mail_body)

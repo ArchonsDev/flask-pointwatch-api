@@ -1,7 +1,9 @@
 from .exceptions import *
-from .controllers.base_controller import build_response
+from .controllers.base_controller import BaseController
 
-def handle_exception(e):
+build_response = BaseController().build_response
+
+def handle_exception(e: Exception):
     if isinstance(e, AccountUnavailableError):
         return build_response("Account unavailable.", 403)
     elif isinstance(e, AuthenticationError):
@@ -14,12 +16,20 @@ def handle_exception(e):
         return build_response(f"Invalid parameter: '{e.param}'.", 400)
     elif isinstance(e, InsufficientPermissionsError):
         return build_response(f"Insufficient permissions. {e.args[0]}", 403)
+    elif isinstance(e, InsufficientSWTDPointsError):
+        return build_response(f"Insufficient SWTD Points. {e.points} points required to clear this employee.", 400)
     elif isinstance(e, MissingRequiredPropertyError):
         return build_response(f"'{e.property}' is required.", 400)
     elif isinstance(e, ResourceNotFoundError):
         return build_response("The requested resource is not available.", 404)
+    elif isinstance(e, SWTDCommentNotFoundError):
+        return build_response("SWTD Comment not found.", 404)
     elif isinstance(e, SWTDFormNotFoundError):
         return build_response("SWTD Form not found.", 404)
+    elif isinstance(e, TermClearingError):
+        return build_response(f"Cannot update user term clearance. {e.message}", 409)
+    elif isinstance(e, TermNotFoundError):
+        return build_response("Term not found.", 404)
     elif isinstance(e, UserNotFoundError):
         return build_response("User not found.", 404)
     else:
