@@ -63,7 +63,7 @@ class TermController(Blueprint, BaseController):
                 data.get('name'),
                 start_date,
                 end_date,
-                data.get('term').upper()
+                data.get('type').upper()
             )
 
             return self.build_response(term.to_dict(), 200)
