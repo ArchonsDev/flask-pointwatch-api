@@ -459,12 +459,12 @@ class FTService:
 
             cursor['y'] -= line_height
 
-            for user in users:
-                clearing = self.clearing_service.get_user_term_clearing(user.id, term.id)
+            for u in users:
+                clearing = self.clearing_service.get_user_term_clearing(u.id, term.id)
 
-                c.drawString(cursor['x'], cursor['y'], f'{user.employee_id}')
-                c.drawString(cursor['x'] + width / 7, cursor['y'], f'{user.lastname}, {user.firstname}')
-                c.drawString(cursor['x'] + width / 2.5, cursor['y'], f'{user.department}')
+                c.drawString(cursor['x'], cursor['y'], f'{u.employee_id}')
+                c.drawString(cursor['x'] + width / 7, cursor['y'], f'{u.lastname}, {u.firstname}')
+                c.drawString(cursor['x'] + width / 2.5, cursor['y'], f'{u.department}')
                 c.drawString(cursor['x'] + width / 1.8, cursor['y'], f"{clearing.date_cleared.strftime('%m-%d-%Y %I:%M %p')}")
 
                 cursor['y'] -= line_height
