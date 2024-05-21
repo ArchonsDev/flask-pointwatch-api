@@ -1,7 +1,18 @@
 {
-  "College": 6,
-  "Senior High School": 6,
-  "Junior High School": 12,
-  "Elementary": 12,
-  "Administrative": 10
+  "SEMESTER": {
+    "College": 6,
+    "Senior High School": 6,
+    "Junior High School": 12,
+    "Elementary": 12
+  },
+  "MIDYEAR": {
+    "College": 3,
+    "Senior High School": 3,
+    "Junior High School": 3,
+    "Elementary": 3
+  },
+  "SCHOOLYEAR": {
+    "Elementary": 12,
+    "Administrative": 10
+  }
 }
