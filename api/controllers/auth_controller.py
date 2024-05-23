@@ -5,10 +5,11 @@ import string
 from flask import Blueprint, request, url_for, redirect, Response, Flask
 from flask_jwt_extended import jwt_required
 
-from .base_controller import BaseController
+from ... import redirects
 from .. import oauth
 from ..services import auth_service, ms_service, user_service, jwt_service, password_encoder_service, mail_service
 from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
+from .base_controller import BaseController
 
 class AuthController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -140,8 +141,8 @@ class AuthController(Blueprint, BaseController):
         return oauth.microsoft.authorize_redirect(redirect_uri=url_for('auth.authorize', _external=True))
 
     def authorize(self) -> Response:
-        on_fail_redirect_url = 'http://localhost:3000/internalerror' # TODO: Change to actual frontend URL
-        on_succ_redirect_url = 'http://localhost:3000/authorized?token={token}&user={user_id}'
+        on_fail_redirect_url = f'{redirects.APP_URL}/internalerror'
+        on_succ_redirect_url = f'{redirects.APP_URL}/authorized?token={token}&user={user_id}'
 
         ms_token = oauth.microsoft.authorize_access_token()
         user_data = self.ms_service.get_user_data(ms_token)
