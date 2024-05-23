@@ -2,7 +2,7 @@ Hello {username},
 
 We received a request to reset your password. If you didn't make this request, you can ignore this email. Otherwise, you can reset your password by clicking on the following link:
 
-Reset Password: http://pointwatch.ddns.net/reset?token={token}
+Reset Password: {reset_link}/reset?token={token}
 
 This link will expire in 24 hours for security reasons.
 
