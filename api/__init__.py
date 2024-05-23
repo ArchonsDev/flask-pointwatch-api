@@ -63,6 +63,6 @@ def create_app(testing=False):
         )
 
     from .exception_handler import handle_exception
-    # app.errorhandler(Exception)(handle_exception)
+    app.errorhandler(Exception)(handle_exception)
     
     return app
