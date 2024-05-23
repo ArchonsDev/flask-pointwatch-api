@@ -1,7 +1,7 @@
 from flask import current_app
 from flask_mail import Message, Mail
 
-from ... import redirects
+import redirects
 from ..services.jwt_service import JWTService
 
 class MailService:

@@ -5,7 +5,7 @@ import string
 from flask import Blueprint, request, url_for, redirect, Response, Flask
 from flask_jwt_extended import jwt_required
 
-from ... import redirects
+import redirects
 from .. import oauth
 from ..services import auth_service, ms_service, user_service, jwt_service, password_encoder_service, mail_service
 from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
