@@ -462,6 +462,9 @@ class FTService:
             for u in users:
                 clearing = self.clearing_service.get_user_term_clearing(u.id, term.id)
 
+                if not clearing:
+                    continue
+
                 c.drawString(cursor['x'], cursor['y'], f'{u.employee_id}')
                 c.drawString(cursor['x'] + width / 7, cursor['y'], f'{u.lastname}, {u.firstname}')
                 c.drawString(cursor['x'] + width / 2.5, cursor['y'], f'{u.department}')
