@@ -453,7 +453,7 @@ class FTService:
             c.setFont(font_family + "-Bold", font_size)
             c.drawString(cursor['x'], cursor['y'], 'ID No.')
             c.drawString(cursor['x'] + width / 7, cursor['y'], 'Name')
-            c.drawString(cursor['x'] + width / 2.5, cursor['y'], 'Department')
+            c.drawString(cursor['x'] + width / 2.8, cursor['y'], 'Department')
             c.drawString(cursor['x'] + width / 1.8, cursor['y'], 'Date Cleared')
             c.setFont(font_family, font_size)
 
@@ -467,7 +467,7 @@ class FTService:
 
                 c.drawString(cursor['x'], cursor['y'], f'{u.employee_id}')
                 c.drawString(cursor['x'] + width / 7, cursor['y'], f'{u.lastname}, {u.firstname}')
-                c.drawString(cursor['x'] + width / 2.5, cursor['y'], f'{u.department}')
+                c.drawString(cursor['x'] + width / 2.8, cursor['y'], f'{u.department}')
                 c.drawString(cursor['x'] + width / 1.8, cursor['y'], f"{clearing.date_cleared.strftime('%m-%d-%Y %I:%M %p')}")
 
                 cursor['y'] -= line_height
