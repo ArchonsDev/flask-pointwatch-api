@@ -2,7 +2,6 @@
   "SEMESTER": {
     "College": 6,
     "Senior High School": 6,
-    "Junior High School": 12,
     "Elementary": 12
   },
   "MIDYEAR": {
@@ -13,6 +12,7 @@
   },
   "SCHOOLYEAR": {
     "Elementary": 12,
+    "Junior High School": 12,
     "Administrative": 10
   }
 }

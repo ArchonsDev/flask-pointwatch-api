@@ -48,6 +48,7 @@ class SWTDController(Blueprint, BaseController):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
             
             swtd_forms = self.swtd_service.get_all_swtds(params=params)
+            swtd_forms = list(filter(lambda swtd_form: swtd_form.author_id == author_id, swtd_forms))
 
             if len(swtd_forms) > 0:
                 swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
