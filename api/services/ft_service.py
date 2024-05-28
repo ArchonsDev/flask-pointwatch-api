@@ -68,6 +68,7 @@ class FTService:
 
         term_ids = list({form.term_id for form in user.swtd_forms})
         terms = [self.term_service.get_term(id) for id in term_ids]
+        terms = list(filter(lambda term: term.is_deleted == False, terms))
 
         for term in terms:
             cursor = {'x': margin_left, 'y': height - margin_top}
@@ -199,7 +200,8 @@ class FTService:
             c.drawString(cursor['x'] + width / 1.55, cursor['y'], 'Status')
             c.setFont(font_family, font_size)
 
-            swtd_forms = filter(lambda form: form.author_id == user.id, term.swtd_forms)
+            swtd_forms = list(filter(lambda form: form.author_id == user.id, term.swtd_forms))
+            swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
 
             cursor['y'] -= line_height
 
@@ -237,6 +239,7 @@ class FTService:
 
         term_ids = list({validation.form.term_id for validation in user.validated_forms})
         terms = [self.term_service.get_term(id) for id in term_ids]
+        terms = list(filter(lambda term: term.is_deleted == False, terms))
 
         for term in terms:
             cursor = {'x': margin_left, 'y': height - margin_top}
@@ -309,6 +312,7 @@ class FTService:
             cursor['y'] -= line_height * 2
 
             swtd_forms = list(filter(lambda form: form.validation.validator_id == user.id, term.swtd_forms))
+            swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
             approved_ctr = 0
             rejected_ctr = 0
 
@@ -377,8 +381,10 @@ class FTService:
         clearings = self.clearing_service.get_clearing_by_clearer_id(user.id)
         user_ids = list({clearing.user_id for clearing in clearings})
         users = [self.user_service.get_user(id=id) for id in user_ids]
+        users = list(filter(lambda u: u.is_deleted == False, users))
         term_ids = list({clearing.term_id for clearing in clearings})
         terms = [self.term_service.get_term(id) for id in term_ids]
+        terms = list(filter(lambda term: term.is_deleted == False, terms))
 
         for term in terms:
             cursor = {'x': margin_left, 'y': height - margin_top}
