@@ -1,4 +1,5 @@
 from typing import Any
+from datetime import datetime
 
 from .. import db
 
@@ -66,3 +67,15 @@ class SWTDForm(db.Model):
             )
 
         return dateset
+
+    @property
+    def date(self):
+        dates = [datetime.strptime(f"{d.get("date")}", "%m-%d-%Y") for d in self.dates_to_json()]
+
+        earliest = dates[0]
+
+        for i in range(1, len(dates)):
+            if dates[i] < earliest:
+                earliest = dates[i]
+
+        return earliest.date
