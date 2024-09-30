@@ -1,27 +1,41 @@
+import os
+
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_mail import Mail
-from authlib.integrations.flask_client import OAuth
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_socketio import SocketIO
+from dotenv import load_dotenv
+
+load_dotenv()
 
 jwt = JWTManager()
 mail = Mail()
-oauth = OAuth()
 db = SQLAlchemy()
 migrate = Migrate()
 socketio = SocketIO()
 
 def create_app(testing=False):
-    from oauth_config import OAUTH_CONFIG
-
     app = Flask(__name__)
+
+    # Configuration Options
+    config = {
+        "SECRET_KEY": bytes.fromhex(os.getenv("SECRET_KEY")),
+        "SQLALCHEMY_DATABASE_URI": os.getenv("SQLALCHEMY_DATABASE_URI"),
+        "SQLALCHEMY_TRACK_MODIFICATIONS": os.getenv("SQLALCHEMY_TRACK_MODIFICATIONS").lower() in ("true", "1"),
+        "MAIL_SERVER": os.getenv("MAIL_SERVER"),
+        "MAIL_PORT": os.getenv("MAIL_PORT"),
+        "MAIL_USE_TLS": os.getenv("MAIL_USE_TLS").lower() in ("true", "1"),
+        "MAIL_USERNAME": os.getenv("MAIL_USERNAME"),
+        "MAIL_PASSWORD": os.getenv("MAIL_PASSWORD")
+    }
+
     if testing:
-        app.config.from_object('test_config')
+        pass
     else:
-        app.config.from_object('config')
+        app.config.update(config)
 
     from .controllers import blueprints
     for bp in blueprints:
@@ -29,7 +43,6 @@ def create_app(testing=False):
 
     jwt.init_app(app)
     mail.init_app(app)
-    oauth.init_app(app)
     db.init_app(app)
     migrate.init_app(app, db)
     socketio.init_app(
@@ -37,7 +50,7 @@ def create_app(testing=False):
         namespaces=[
             '/notifications',
         ],
-        cors_allowed_origins="*"
+        cors_allowed_origins=os.getenv("CORS_ALLOWED_ORIGINS")
     )
 
     with app.app_context():
@@ -51,18 +64,12 @@ def create_app(testing=False):
         app,
         resources={
             r"/*": {
-                "origins": "*"
+                "origins": os.getenv("CORS_ALLOWED_ORIGINS")
             }
         }
     )
 
-    for provider, config in OAUTH_CONFIG.items():
-         oauth.register(
-            name=provider,
-            **config
-        )
-
     from .exception_handler import handle_exception
-    # app.errorhandler(Exception)(handle_exception)
+    app.errorhandler(Exception)(handle_exception)
     
     return app

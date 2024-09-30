@@ -6,8 +6,7 @@ from flask import Blueprint, request, url_for, redirect, Response, Flask
 from flask_jwt_extended import jwt_required
 
 import redirects
-from .. import oauth
-from ..services import auth_service, ms_service, user_service, jwt_service, password_encoder_service, mail_service
+from ..services import auth_service, user_service, jwt_service, password_encoder_service, mail_service
 from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
 from .base_controller import BaseController
 
@@ -16,7 +15,6 @@ class AuthController(Blueprint, BaseController):
         super().__init__(name, import_name, **kwargs)
         
         self.auth_service = auth_service
-        self.ms_service = ms_service
         self.user_service = user_service
         self.jwt_service = jwt_service
         self.password_encoder_service = password_encoder_service
@@ -29,8 +27,6 @@ class AuthController(Blueprint, BaseController):
         self.route('/login', methods=['POST'])(self.login)
         self.route('/recovery', methods=['POST'])(self.recover_account)
         self.route('/resetpassword', methods=['POST'])(self.reset_password)
-        self.route('/microsoft')(self.microsoft)
-        self.route('/authorize')(self.authorize)
 
     def create_account(self) -> Response:
         data = request.json
@@ -136,46 +132,6 @@ class AuthController(Blueprint, BaseController):
         
         self.user_service.update_user(user, password=data.get('password'))
         return self.build_response({"message": "Password changed."}, 200)
-
-    def microsoft(self) -> Response:
-        return oauth.microsoft.authorize_redirect(redirect_uri=url_for('auth.authorize', _external=True))
-
-    def authorize(self) -> Response:
-        on_fail_redirect_url = '{app_url}/internalerror'
-        on_succ_redirect_url = '{app_url}/authorized?token={token}&user={user_id}'
-
-        ms_token = oauth.microsoft.authorize_access_token()
-        user_data = self.ms_service.get_user_data(ms_token)
-        # Ensure that the Microsoft Account Data is present.
-        if not user_data:
-            return redirect(on_fail_redirect_url.format(app_url=redirects.APP_URL))
-        
-        employee_id = user_data.get('jobTitle')
-        email = user_data.get('mail')
-        firstname = user_data.get('givenName')
-        lastname = user_data.get('surname')
-        password = self.password_encoder_service.encode_password(''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8)))
-
-        user = self.user_service.get_user(email=email)
-        # Create a local account if not yet registered.
-        if not user:
-            user = self.user_service.create_user(employee_id, email, firstname, lastname, password)
-            # Ensure that a local account has been created.
-            if not user:
-                return redirect(on_fail_redirect_url.format(app_url=redirects.APP_URL))
-        
-        # Ensure that the user has a linked MS Account
-        if not user.ms_user:
-            id = user_data.get('id')
-            user_id = user.id
-            access_token = ms_token
-
-            self.ms_service.create_ms_user(id, user_id, access_token)
-
-        token = self.jwt_service.generate_token(user.email)
-
-        user_id = self.jwt_service.generate_token(user.id)
-        return redirect(on_succ_redirect_url.format(app_url=redirects.APP_URL, token=token, user_id=user_id))
 
 def setup(app: Flask) -> None:
     app.register_blueprint(AuthController('auth', __name__, url_prefix='/auth'))
