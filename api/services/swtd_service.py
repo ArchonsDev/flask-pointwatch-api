@@ -1,5 +1,6 @@
 from typing import Any, Union
 from datetime import datetime
+import json
 
 from flask_sqlalchemy import SQLAlchemy
 
@@ -31,18 +32,17 @@ class SWTDService:
 
         return swtd_query.all()
 
-    def create_swtd(self, author_id: int, title: str, venue: str, category: str, role: str, date: datetime.date, time_started: datetime.time, time_finished: datetime.time, points: int, benefits: str, term: Term) -> SWTDForm:
+    def create_swtd(self, author_id: int, title: str, venue: str, category: str, role: str, dates: str, points: int, benefits: str, has_deliverables: bool, term: Term) -> SWTDForm:
         swtd_form = SWTDForm(
             author_id=author_id,
             title=title,
             venue=venue,
             category=category,
             role=role,
-            date=date,
-            time_started=time_started,
-            time_finished=time_finished,
+            dates=SWTDForm.dates_to_str(json.loads(dates)),
             points=points,
             benefits=benefits,
+            has_deliverables=True if has_deliverables.lower().startswith("true") else False,
             term=term
         )
 
@@ -60,6 +60,9 @@ class SWTDService:
             if not hasattr(SWTDForm, key):
                 raise InvalidParameterError(key)
 
+            if key == "dates":
+                value = SWTDForm.dates_to_str(value)
+
             if key == 'term_id':
                 term = self.term_service.get_term(value)
 
@@ -67,8 +70,8 @@ class SWTDService:
                     raise TermNotFoundError()
                 
                 swtd_form.term = term
-            else:            
-                setattr(swtd_form, key, value)
+
+            setattr(swtd_form, key, value)
 
         self.db.session.commit()
         return swtd_form

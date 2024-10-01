@@ -5,7 +5,7 @@ from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
-from ..services import jwt_service, user_service, auth_service, ms_service, term_service, ft_service
+from ..services import jwt_service, user_service, auth_service, term_service, ft_service
 from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError
 
 class UserController(Blueprint, BaseController):
@@ -15,7 +15,6 @@ class UserController(Blueprint, BaseController):
         self.jwt_service = jwt_service
         self.user_service = user_service
         self.auth_service = auth_service
-        self.ms_service = ms_service
         self.term_service = term_service
         self.ft_service = ft_service
 
@@ -25,7 +24,6 @@ class UserController(Blueprint, BaseController):
         self.route('/', methods=['GET'])(self.get_all_users)
         self.route('/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])(self.process_user)
         self.route('/<int:user_id>/points', methods=['GET'])(self.get_points)
-        self.route('/<int:user_id>/avatar', methods=['GET'])(self.get_avatar)
         self.route('/<int:user_id>/swtds', methods=['GET'])(self.get_user_swtds)
         self.route('/<int:user_id>/terms/<int:term_id>', methods=['GET', 'POST', 'DELETE'])(self.handle_clearing)
         self.route('/<int:user_id>/swtds/export', methods=['GET'])(self.export_swtd_data)
@@ -123,31 +121,6 @@ class UserController(Blueprint, BaseController):
             points = self.user_service.get_point_summary(user, term)
             
             return self.build_response(points, 200)
-
-    @jwt_required()
-    def get_avatar(self, user_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-        # Ensure the requester is authorized.
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
-        
-        user = self.user_service.get_user(id=user_id)
-        # Ensure the target is registered.
-        if not user or (user and user.is_deleted):
-            raise UserNotFoundError()
-        
-        # Ensure that both users have MS Accounts linked.
-        if not user.ms_user or not requester.ms_user:
-            raise ResourceNotFoundError()
-        
-        ms_token = requester.ms_user.parse_access_token()
-        avatar = self.ms_service.get_user_avatar(user.email, ms_token)
-        # Serve the avatar as an object if it exists.
-        if avatar:
-            return Response(avatar, mimetype='image/jpg', status=200)
-        
-        raise ResourceNotFoundError()
 
     @jwt_required()
     def get_user_swtds(self, user_id: int) -> Response:
