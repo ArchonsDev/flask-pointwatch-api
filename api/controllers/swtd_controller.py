@@ -64,11 +64,10 @@ class SWTDController(Blueprint, BaseController):
                 'category',
                 'venue',
                 'role',
-                'date',
-                'time_started',
-                'time_finished',
+                'dates',
                 'points',
                 'benefits',
+                'has_deliverables',
                 'term_id'
             ]
 
@@ -76,16 +75,6 @@ class SWTDController(Blueprint, BaseController):
 
             if len(request.files) != 1:
                 raise MissingRequiredPropertyError("proof")
-
-            try:
-                data = {
-                    **data,
-                    'date': datetime.strptime(data.get('date'), '%m-%d-%Y').date(),
-                    'time_started': datetime.strptime(data.get('time_started'), '%H:%M').time(),
-                    'time_finished': datetime.strptime(data.get('time_finished'), '%H:%M').time()
-                }
-            except Exception:
-                raise InvalidDateTimeFormat()
             
             term = self.term_service.get_term(data.get('term_id'))
             if not term or (term and term.is_deleted):
@@ -97,11 +86,10 @@ class SWTDController(Blueprint, BaseController):
                 data.get('venue'),
                 data.get('category'),
                 data.get('role'),
-                data.get('date'),
-                data.get('time_started'),
-                data.get('time_finished'),
+                data.get('dates'),
                 data.get('points'),
                 data.get('benefits'),
+                data.get('has_deliverables'),
                 term
             )
 
@@ -131,16 +119,6 @@ class SWTDController(Blueprint, BaseController):
             return self.build_response(swtd.to_dict(), 200)
         elif request.method == 'PUT':
             data = request.json
-
-            try:
-                data = {
-                    **data,
-                    'date': datetime.strptime(data.get('date'), '%m-%d-%Y').date(),
-                    'time_started': datetime.strptime(data.get('time_started'), '%H:%M').time(),
-                    'time_finished': datetime.strptime(data.get('time_finished'), '%H:%M').time()
-                }
-            except Exception:
-                raise InvalidDateTimeFormat()
 
             if swtd.author_id != requester.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot update SWTD form data.")

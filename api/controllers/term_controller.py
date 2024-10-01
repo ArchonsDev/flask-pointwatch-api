@@ -49,7 +49,7 @@ class TermController(Blueprint, BaseController):
 
             self.check_fields(data, required_fields)
 
-            if not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot create Term,")
             
             try:

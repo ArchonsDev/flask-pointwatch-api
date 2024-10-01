@@ -16,10 +16,9 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_superuser = db.Column(db.Boolean, nullable=False, default=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
+    is_ms_linked = db.Column(db.Boolean, nullable=False, default=False)
     # Link to SWTDForm
     swtd_forms = db.relationship('SWTDForm', backref='author', lazy=True)
-    # Link to MSUser
-    ms_user = db.relationship('MSUser', backref='user', lazy=True, uselist=False)
     # Link to SWTDValidation
     validated_forms = db.relationship('SWTDValidation', backref='validator', lazy=True)
     # Link to SWTDComment
@@ -39,7 +38,7 @@ class User(db.Model):
             "is_staff": self.is_staff,
             "is_admin": self.is_admin,
             "is_superuser": self.is_superuser,
-            "is_ms_linked": self.ms_user is not None,
+            "is_ms_linked": self.is_ms_linked,
             "is_deleted": self.is_deleted,
             "point_balance": self.point_balance
         }
