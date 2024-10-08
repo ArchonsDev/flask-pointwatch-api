@@ -71,6 +71,18 @@ class UserController(Blueprint, BaseController):
             return self.build_response(user.to_dict(), 200)
         elif request.method == 'PUT':
             data = request.json
+
+            updated_fields = {
+                "firstname": data.get("firstname"),
+                "lastname": data.get("lastname"),
+                "password": data.get("password"),
+                "department_id": data.get("department_id"),
+                "is_staff": data.get("is_staff"),
+                "is_admin": data.get("is_admin"),
+                "is_superuser": data.get("is_superuser"),
+                "point_balance": data.get("point_balance")
+            }
+
             # Ensure that the requester has the required permission.
             if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot update user data.")
@@ -81,7 +93,7 @@ class UserController(Blueprint, BaseController):
             if 'is_superuser' in data and not self.auth_service.has_permissions(requester, minimum_auth='superuser'):
                 raise InsufficientPermissionsError("Cannot change user superuser status.")
             
-            user = self.user_service.update_user(user, **data)
+            user = self.user_service.update_user(user, updated_fields)
             return self.build_response(user.to_dict(), 200)
         elif request.method =='DELETE':
             if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
