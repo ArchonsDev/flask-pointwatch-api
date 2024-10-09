@@ -1,8 +1,6 @@
 from typing import Any
 from datetime import datetime
 
-from sqlalchemy import event
-
 from .. import db
 
 class Department(db.Model):
@@ -15,6 +13,8 @@ class Department(db.Model):
 
     name = db.Column(db.String(255), nullable=False)
     required_points = db.Column(db.Integer, nullable=False)
+    classificaation = db.Column(db.String(255), nullable=False)
+    has_midyear = db.Column(db.Boolean, nullable=False)
 
     head_id = db.Column(db.Integer, db.ForeignKey("tblusers.id"), unique=True)
     head = db.relationship("User", foreign_keys=[head_id], back_populates="headed_department")
@@ -29,12 +29,7 @@ class Department(db.Model):
             "is_deleted": self.is_deleted,
             "name": self.name,
             "required_points": self.required_points,
+            "classification": self.classificaation,
+            "has_midyear": self.has_midyear,
             "head": self.head.to_dict() if self.head else None
         }
-
-# Event listener function for after update
-def after_update_listener(mapper, connection, target):
-    target.date_modified = datetime.now()
-
-event.listen(Department, 'after_update', after_update_listener)
-

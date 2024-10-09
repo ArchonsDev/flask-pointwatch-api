@@ -41,7 +41,9 @@ class DepartmentController(Blueprint, BaseController):
             data = request.json
             required_fields = [
                 'name',
-                'required_points'
+                'required_points',
+                'classification',
+                'has_midyear'
             ]
 
             self.check_fields(data, required_fields)
@@ -51,7 +53,9 @@ class DepartmentController(Blueprint, BaseController):
             
             department = self.department_service.create_department(
                 data.get('name'),
-                data.get('required_points')
+                data.get('required_points'),
+                data.get('classification'),
+                data.get('has_midyear')
             )
 
             return self.build_response(department.to_dict(), 200)

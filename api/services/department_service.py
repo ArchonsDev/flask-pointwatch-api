@@ -9,10 +9,12 @@ class DepartmentService(object):
     def __init__(self, db: SQLAlchemy) -> None:
         self.db = db
 
-    def create_department(self, name: str, required_points: int) -> Department:
+    def create_department(self, name: str, required_points: int, classificaation: str, has_midyear: bool) -> Department:
         department = Department(
             name=name,
-            required_points=required_points
+            required_points=required_points,
+            clasification=classificaion.
+            has_midyear=has_midyear
         )
 
         self.db.session.add(department)
