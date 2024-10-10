@@ -17,9 +17,9 @@ class Department(db.Model):
     has_midyear = db.Column(db.Boolean, nullable=False)
 
     head_id = db.Column(db.Integer, db.ForeignKey("tblusers.id"), unique=True)
-    head = db.relationship("User", foreign_keys=[head_id], back_populates="headed_department")
+    head = db.relationship("User", foreign_keys=[head_id], back_populates="headed_department", lazy=True)
 
-    members = db.relationship("User", foreign_keys="User.department_id", back_populates="department")
+    members = db.relationship("User", foreign_keys="User.department_id", back_populates="department", lazy=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {

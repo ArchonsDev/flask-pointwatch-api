@@ -29,10 +29,10 @@ class User(db.Model):
     # For Point tracking
     point_balance = db.Column(db.Float, nullable=False, default=0)
     # For Department Head
-    headed_department = db.relationship("Department", foreign_keys="Department.head_id", back_populates="head")
+    headed_department = db.relationship("Department", foreign_keys="Department.head_id", back_populates="head", lazy=True)
     # For department membership
     department_id = db.Column(db.Integer, db.ForeignKey("tbldepartments.id"))
-    department = db.relationship("Department", foreign_keys=[department_id], back_populates="members")
+    department = db.relationship("Department", foreign_keys=[department_id], back_populates="members", lazy=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
