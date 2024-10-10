@@ -13,7 +13,7 @@ class DepartmentService(object):
         department = Department(
             name=name,
             required_points=required_points,
-            clasification=classificaion.
+            clasification=classificaion,
             has_midyear=has_midyear
         )
 
