@@ -13,7 +13,7 @@ class Department(db.Model):
 
     name = db.Column(db.String(255), nullable=False)
     required_points = db.Column(db.Float, nullable=False)
-    classificaation = db.Column(db.String(255), nullable=False)
+    classification = db.Column(db.String(255), nullable=False)
     has_midyear = db.Column(db.Boolean, nullable=False)
 
     head_id = db.Column(db.Integer, db.ForeignKey("tblusers.id"), unique=True)
@@ -29,7 +29,7 @@ class Department(db.Model):
             "is_deleted": self.is_deleted,
             "name": self.name,
             "required_points": self.required_points,
-            "classification": self.classificaation,
+            "classification": self.classification,
             "has_midyear": self.has_midyear,
             "head": self.head.to_dict() if self.head else None
         }
