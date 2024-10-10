@@ -23,7 +23,7 @@ class Department(db.Model):
 
     @property
     def head(self):
-        return next(filter(lambda u: u.is_admin, self.members), None)
+        return next((u for u in self.members if u.is_admin), None)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -35,5 +35,10 @@ class Department(db.Model):
             "required_points": self.required_points,
             "classification": self.classification,
             "has_midyear": self.has_midyear,
-            "head": self.head.to_dict() if self.head else None
+            "head": {
+                "id": self.head.id,
+                "employee_id": self.head.employee_id,
+                "firstname": self.head.firstname,
+                "lastname": self.head.lastname
+            } if self.head else None
         }
