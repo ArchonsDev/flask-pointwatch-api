@@ -43,7 +43,14 @@ class DepartmentService(object):
         return department_query.all()
 
     def update_department(self, department: Department, **data: dict[str, Any]) -> Department:
-        for key, value in data.items():
+        updated_fields = {
+            "name": data.get("name"),
+            "classification": data.get("classification"),
+            "has_midyear": data.get("has_midyear"),
+            "head_id": data.get("head_id")
+        }
+
+        for key, value in updated_fields.items():
             # Ensure provided key is valid.
             if not hasattr(Department, key):
                 raise InvalidParameterError(key)

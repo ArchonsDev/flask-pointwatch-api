@@ -54,7 +54,7 @@ class DepartmentController(Blueprint, BaseController):
             department = self.department_service.create_department(
                 data.get('name'),
                 data.get('required_points'),
-                data.get('classification'),
+                data.get('classification').trim().strip().upper(),
                 data.get('has_midyear')
             )
 

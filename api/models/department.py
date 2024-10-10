@@ -12,7 +12,7 @@ class Department(db.Model):
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
     name = db.Column(db.String(255), nullable=False)
-    required_points = db.Column(db.Integer, nullable=False)
+    required_points = db.Column(db.Float, nullable=False)
     classificaation = db.Column(db.String(255), nullable=False)
     has_midyear = db.Column(db.Boolean, nullable=False)
 
