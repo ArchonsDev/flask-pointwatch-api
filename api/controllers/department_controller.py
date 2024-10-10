@@ -21,7 +21,7 @@ class DepartmentController(Blueprint, BaseController):
 
     def map_routes(self) -> None:
         self.route('/', methods=['GET', 'POST'])(self.index)
-        self.route('/<int:departmetn_id>', methods=['GET', 'PUT', 'DELETE'])(self.handle_department)
+        self.route('/<int:department_id>', methods=['GET', 'PUT', 'DELETE'])(self.handle_department)
 
     @jwt_required()
     def index(self) -> Response:
@@ -68,7 +68,7 @@ class DepartmentController(Blueprint, BaseController):
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
-        department = self.department_service.get_term(department_id)
+        department = self.department_service.get_department(department_id)
 
         if not department or (department and department.is_deleted):
             raise DepartmentNotFoundError()
