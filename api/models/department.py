@@ -16,10 +16,14 @@ class Department(db.Model):
     classification = db.Column(db.String(255), nullable=False)
     has_midyear = db.Column(db.Boolean, nullable=False)
 
-    head_id = db.Column(db.Integer, db.ForeignKey("tblusers.id"), unique=True)
-    head = db.relationship("User", foreign_keys=[head_id], back_populates="headed_department", lazy=True)
+    # head_id = db.Column(db.Integer, db.ForeignKey("tblusers.id"), unique=True)
+    # head = db.relationship("User", foreign_keys=[head_id], back_populates="headed_department", lazy=True)
 
     members = db.relationship("User", foreign_keys="User.department_id", back_populates="department", lazy=True)
+
+    @property
+    def head(self):
+        return next((u for u in self.members if u.is_admin), None)
 
     def to_dict(self) -> dict[str, Any]:
         return {

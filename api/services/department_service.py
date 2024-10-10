@@ -46,8 +46,7 @@ class DepartmentService(object):
         updated_fields = {
             "name": data.get("name"),
             "classification": data.get("classification"),
-            "has_midyear": data.get("has_midyear"),
-            "head_id": data.get("head_id")
+            "has_midyear": data.get("has_midyear")
         }
 
         for key, value in updated_fields.items():
