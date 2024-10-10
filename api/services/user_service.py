@@ -68,6 +68,9 @@ class UserService:
             # Ensure provided key is valid.
             if not hasattr(User, key):
                 raise InvalidParameterError(key)
+
+            if key == "is_admin" and user.department is not None and value:
+                user.department.head = user
             
             if key == 'password':
                 value = self.password_encoder_service.encode_password(value)
