@@ -23,7 +23,7 @@ class Department(db.Model):
 
     @property
     def head(self):
-        return next((u for u in self.members if u.is_admin), None)
+        return next(filter(lambda u: u.is_admin, self.members), None)
 
     def to_dict(self) -> dict[str, Any]:
         return {
