@@ -1,7 +1,7 @@
 from typing import Any
 from datetime import datetime
 
-from flask import Blueprint, request, Response, Flask
+from flask import Blueprint, request, Response, Flask, redirect, url_for
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
@@ -26,6 +26,7 @@ class UserController(Blueprint, BaseController):
         self.route('/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])(self.process_user)
         self.route('/<int:user_id>/points', methods=['GET'])(self.get_points)
         self.route('/<int:user_id>/swtds', methods=['GET'])(self.get_user_swtds)
+        self.route('/<int:user_id>/department', methods=['GET'])(self.get_user_department)
         self.route('/<int:user_id>/terms/<int:term_id>', methods=['GET', 'POST', 'DELETE'])(self.handle_clearing)
         self.route('/<int:user_id>/swtds/export', methods=['GET'])(self.export_swtd_data)
         self.route('/<int:user_id>/validations/export', methods=['GET'])(self.export_staff_data)
@@ -229,32 +230,51 @@ class UserController(Blueprint, BaseController):
             return self.build_response({"swtd_forms": [form.to_dict() for form in swtd_forms]}, 200)
 
     @jwt_required()
+    def get_user_department(self, user_id: int) -> Response:
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
+
+        if not user or user.is_deleted:
+            raise UserNotFoundError()
+
+        if not user.department:
+            raise DepartmentNotFoundError()
+        
+        return redirect(url_for('department.handle_department', department_id=user.department.id))
+
+    @jwt_required()
     def handle_clearing(self, user_id: int, term_id: int) -> Response:
         email = jwt_service.get_identity_from_token()
 
-        requester = user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = user_service.get_user(id=user_id)
+        user = user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id)
+        )
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
-        term = term_service.get_term(term_id)
+        term = self.term_service.get_term(
+            lambda q, t: q.filter_by(id=term_id).first()
+        )
         if not term or (term and term.is_deleted):
             raise TermNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot get user term data.")
     
-            term_summary = user_service.get_term_summary(user, term)
+            term_summary = self.ser_service.get_term_summary(user, term)
             return self.build_response(term_summary, 200)
-
-        if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
-            raise InsufficientPermissionsError("Cannot update user clearance.")
-        
         if request.method == 'POST':
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
+                raise InsufficientPermissionsError("Cannot update user clearance.")
+
             self.user_service.clear_user_for_term(requester, user, term)
 
             return self.build_response({'message': 'Employee clearance granted for term.'}, 200)
@@ -266,17 +286,20 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def export_swtd_data(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot export user SWTD data.")
 
             content = ft_service.dump_user_swtd_data(requester, user)
@@ -290,20 +313,23 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def export_staff_data(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
-        if not self.auth_service.has_permissions(user, minimum_auth='staff'):
+        if not self.auth_service.has_permissions(user, minimum_auth='head'):
             raise UserNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot export staff validation data.")
 
             content = ft_service.dump_staff_validation_data(requester, user)
@@ -317,20 +343,20 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def export_admin_data(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
-        if not self.auth_service.has_permissions(user, minimum_auth='admin'):
-            raise UserNotFoundError()
-        
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot export staff validation data.")
 
             content = ft_service.dump_admin_clearing_data(requester, user)
