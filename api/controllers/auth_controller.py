@@ -1,5 +1,4 @@
 from typing import Any
-
 import random
 import string
 from flask import Blueprint, request, url_for, redirect, Response, Flask
@@ -118,7 +117,9 @@ class AuthController(Blueprint, BaseController):
         # Ensure required fields are present.
         self.check_fields(data, required_fields)
         # Check if the email is registered to a user.
-        user = self.user_service.get_user(email=data.get('email'))
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email, is_deleted=False).first()
+        )
         if user:
             self.mail_service.send_recovery_mail(user.email, user.firstname)
 
@@ -136,12 +137,14 @@ class AuthController(Blueprint, BaseController):
         # Ensure that the required fields are present.
         self.check_fields(data, required_fields)
 
-        user = self.user_service.get_user(email=email)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         # Ensure that the user exists.
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
-        self.user_service.update_user(user, password=data.get('password'))
+        self.user_service.update_user(user, {"password": data.get('password')})
         return self.build_response({"message": "Password changed."}, 200)
 
 def setup(app: Flask) -> None:
