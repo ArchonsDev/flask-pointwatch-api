@@ -6,6 +6,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 from ..models.swtd_form import SWTDForm
 from ..models.term import Term
+from ..models.proof import Proof
 from ..services.term_service import TermService
 from ..exceptions import InvalidParameterError, TermNotFoundError
 

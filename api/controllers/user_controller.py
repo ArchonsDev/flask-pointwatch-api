@@ -5,8 +5,8 @@ from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
-from ..services import jwt_service, user_service, auth_service, term_service, ft_service
-from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError
+from ..services import jwt_service, user_service, auth_service, term_service, ft_service, department_service
+from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError, DepartmentNotFoundError
 
 class UserController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -17,6 +17,7 @@ class UserController(Blueprint, BaseController):
         self.auth_service = auth_service
         self.term_service = term_service
         self.ft_service = ft_service
+        self.department_service = department_service
 
         self.map_routes()
 
@@ -34,69 +35,98 @@ class UserController(Blueprint, BaseController):
     def get_all_users(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
         requester = self.user_service.get_user(email=email)
+
         # Ensure that the requester exists.
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
-        # Ensure that the requester has permissions.
-        if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot retrieve user list.")
-        
-        params = {**request.args}
 
-        users = self.user_service.get_all_users(params=params)
+        if request.method == 'GET':
+            # URI: GET /users/
+            # Description: Retrieves all users, supports params as filters.
+            # Required access level: 2 (Head).
+            # Params: Refer to user model.
 
-        if len(users) > 0:
-            users = list(filter(lambda user: user.is_deleted == False, users))
+            # Ensure that the requester has permissions.
+            if not self.auth_service.has_permissions(requester, minimum_auth='head'):
+                raise InsufficientPermissionsError("Cannot retrieve user list.")
+            
+            # Process Params
+            params = {**request.args}
+            params["is_deleted"] = False
 
-        return self.build_response({"users": [user.to_dict() for user in users]}, 200)
+            # Query users using params
+            users = self.user_service.get_all_users(params)
+
+            return self.build_response({"users": [user.to_dict() for user in users]}, 200)
 
     @jwt_required()
     def process_user(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user('email', email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
+
         # Ensure that the requester exists.
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = self.user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         # Ensure that the target exists.
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
 
         if request.method == 'GET':
+            # URI: GET /users/<user_id>/
+            # Description: Returns a user matching the specified ID.
+            # Required access level: 0 (All)-For querying own user data | 2 (Head) for querying other user data.
+            # Params: None
+
             # Ensure that the requester has permission.
-            if not self.auth_service.has_permissions(requester, minimum_auth='staff') and requester.id != user_id:
+            if not self.auth_service.has_permissions(requester, minimum_auth='head') and requester.id != user_id:
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
             return self.build_response(user.to_dict(), 200)
         elif request.method == 'PUT':
-            data = request.json
+            # URI: PUT /users/<user_id>
+            # Description: Updates a user specified by the ID.
+            # Required access level: 0 (All)-For own user data | 2 (Head) for other user data.
+            # Payload:
+            # - password: str
+            # - firstname: str
+            # - lastname: str
+            # - point_balance: float
+            # - access_level: int
+            # - department_id: int
 
-            updated_fields = {
-                "firstname": data.get("firstname"),
-                "lastname": data.get("lastname"),
-                "password": data.get("password"),
-                "department_id": data.get("department_id"),
-                "is_staff": data.get("is_staff"),
-                "is_admin": data.get("is_admin"),
-                "is_superuser": data.get("is_superuser"),
-                "point_balance": data.get("point_balance")
-            }
+            data = request.json
 
             # Ensure that the requester has the required permission.
             if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot update user data.")
-            if 'is_staff' in data and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
-                raise InsufficientPermissionsError("Cannot change user staff status.")
-            if 'is_admin' in data and not self.auth_service.has_permissions(requester, minimum_auth='superuser'):
-                raise InsufficientPermissionsError("Cannot change user admin status.")
-            if 'is_superuser' in data and not self.auth_service.has_permissions(requester, minimum_auth='superuser'):
-                raise InsufficientPermissionsError("Cannot change user superuser status.")
+            if 'access_level' in data and not self.auth_service.has_permissions(requester, 'custon', data.get('access_level') + 1):
+                raise InsufficientPermissionsError("Cannot update user access level.")
+            if 'is_head' in data and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot change user head status.")
             
-            user = self.user_service.update_user(user, updated_fields)
+            if 'department_id' in data:
+                department = self.department_service.get_department(
+                    lambda q, d: q.filter_by(id=data.get("id")).first()
+                )
+
+                if not department:
+                    raise DepartmentNotFoundError()
+            
+            user = self.user_service.update_user(user, data)
             return self.build_response(user.to_dict(), 200)
         elif request.method =='DELETE':
-            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            # URI: DEKETE /users/<user_id>
+            # Description: Disables the user specified by the ID.
+            # Required access level: 0 (All) - For own own account | 2 (Head) - For other users.
+            # Params: None
+
+            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot delete user.")
 
             self.user_service.delete_user(user)
@@ -116,6 +146,12 @@ class UserController(Blueprint, BaseController):
             raise UserNotFoundError()
 
         if request.method == 'GET':
+            # URI: /GET /users/<user_id>/points
+            # Description: Returns the point summary of the user for the specified Term.
+            # Required access level: 0 (All) - For own own account | 2 (Head) - For other users.
+            # Params:
+            # - term_id : ID of Term.
+
             # Ensure that the requester has permission.
             if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user points.")

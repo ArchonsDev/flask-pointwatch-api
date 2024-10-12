@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Union, Any
+from typing import Union, Any, Callable, Iterable
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import Query
 
 from ..models.department import Department
 
@@ -21,26 +22,8 @@ class DepartmentService(object):
         self.db.session.commit()
         return department
 
-    def get_department(self, id: int) -> Union[Department, None]:
-        return Department.query.get(id)
-
-    def get_all_departments(self, **params: dict[str, Any]) -> list[Department]:
-        department_query = Department.query
-
-        for key, value in params.items():
-            # Skip 'is_deleted' paramters.
-            if key == 'is_deleted':
-                continue
-
-            if not hasattr(Department, key):
-                raise InvalidParameterError(key)
-            
-            if type(value) is str:
-                department_query = department_query.filter(getattr(Department, key).like(f'%{value}%'))
-            else:
-                department_query = department_query.filter(getattr(Department, key) == value)
-
-        return department_query.all()
+    def get_department(self, filter_func: Callable[[Query, Department], Iterable]):
+        return filter_func(Department.query, Department)
 
     def update_department(self, department: Department, **data: dict[str, Any]) -> Department:
         updated_fields = {

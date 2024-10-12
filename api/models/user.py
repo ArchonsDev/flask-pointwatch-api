@@ -6,49 +6,68 @@ from .. import db
 class User(db.Model):
     __tablename__ = 'tblusers'
 
+    # Record information
     id = db.Column(db.Integer, primary_key=True)
     date_created = db.Column(db.DateTime, nullable=False, default=datetime.now())
     date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now())
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
-    is_ms_linked = db.Column(db.Boolean, nullable=False, default=False)
 
-    employee_id = db.Column(db.String(255), unique=True, nullable=True)
+    # Credentials
     email = db.Column(db.String(255), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+
+    # Profile
+    employee_id = db.Column(db.String(255), unique=True, nullable=True)
     firstname = db.Column(db.String(255), nullable=False)
     lastname = db.Column(db.String(255), nullable=False)
-    password = db.Column(db.String(255), nullable=False)
-    is_staff = db.Column(db.Boolean, nullable=False, default=False)
-    is_admin = db.Column(db.Boolean, nullable=False, default=False)
-    is_superuser = db.Column(db.Boolean, nullable=False, default=False)
-    # Link to SWTDForm
-    swtd_forms = db.relationship('SWTDForm', backref='author', lazy=True)
-    # Link to SWTDValidation
-    validated_forms = db.relationship('SWTDValidation', backref='validator', lazy=True)
-    # Link to SWTDComment
-    comments = db.relationship('SWTDComment', backref='author', lazy=True)
-    # For Point tracking
     point_balance = db.Column(db.Float, nullable=False, default=0)
-    # For Department Head
-    # headed_department = db.relationship("Department", foreign_keys="Department.head_id", back_populates="head", lazy=True)
-    # For department membership
+
+    # Account Information
+    is_ms_linked = db.Column(db.Boolean, nullable=False, default=False)
+    access_level = db.Column(db.Integer, nullable=False, default=0)
+
+    # Foreign Keys
     department_id = db.Column(db.Integer, db.ForeignKey("tbldepartments.id"))
-    department = db.relationship("Department", foreign_keys=[department_id], back_populates="members", lazy=True)
+
+    # Relationships
+    comments = db.relationship("SWTDComment", foreign_keys="SWTDComment.author_id", back_populates="author", lazy=True)
+    department = db.relationship("Department", foreign_keys=[department_id], back_populates="members", uselist=False, lazy=True)
+    swtd_forms = db.relationship("SWTDForm", foreign_keys="SWTDForm.author_id", back_populates="author", lazy=True)
+    validated_swtd_forms = db.relationship("SWTDForm", foreign_keys="SWTDForm.validator_id", back_populates="validator", lazy=True)
+
+    @property
+    def is_head(self) -> bool:
+        return self.access_level >= 1
+
+    @property
+    def is_staff(self) -> bool:
+        return self.access_level >= 2
+
+    @property
+    def is_superuser(self) -> bool:
+        return self.access_level >= 3
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            # Record Information
             "id": self.id,
             "date_created": self.date_created.strftime("%m-%d-%Y %H:%M"),
             "date_modified": self.date_modified.strftime("%m-%d-%Y %H:%M"),
             "is_deleted": self.is_deleted,
-            "is_ms_linked": self.is_ms_linked,
-            "employee_id": self.employee_id,
+
+            # Credentials
             "email": self.email,
+
+            # Profile
+            "employee_id": self.employee_id,
             "firstname": self.firstname,
             "lastname":  self.lastname,
-            "password": self.password,
-            "department": self.department.to_dict() if self.department else None,
+            "is_head": self.is_head,
             "is_staff": self.is_staff,
-            "is_admin": self.is_admin,
             "is_superuser": self.is_superuser,
-            "point_balance": self.point_balance
+            "point_balance": self.point_balance,
+
+            # Account Information
+            "is_ms_linked": self.is_ms_linked,
+            "access_level": self.access_level
         }

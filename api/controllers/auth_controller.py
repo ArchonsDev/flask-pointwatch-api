@@ -41,26 +41,30 @@ class AuthController(Blueprint, BaseController):
         # Ensure the required fields are present.
         self.check_fields(data, required_fields)
         
-        existing_user = self.user_service.get_user(email=data.get('email'))
+        existing_user = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=data.get('email')).first()
+        )
         # Ensure that the email provided is not in use.
         if existing_user:
             raise DuplicateValueError('email')
         
-        existing_user = self.user_service.get_user(employee_id=data.get('employee_id'))
+        existing_user = self.user_service.get_user(
+            lambda q, u: q.filter_by(employee_id=data.get('employee_id')).first()
+        )
         # Ensure that the employee ID provided is not in use.
         if existing_user:
             raise DuplicateValueError('employee_id')
 
-        user = self.user_service.create_user(
-            data.get('employee_id'),
-            data.get('email'),
-            data.get('firstname'),
-            data.get('lastname'),
-            data.get('password')
-        )
+        user = self.user_service.create_user(**data)
 
         response = {
-            "user": user.to_dict(),
+            "user": {
+                **user.to_dict(),
+                "department": user.department.to_dict() if user.department else None,
+                "swtd_forms": [s.to_dict() for s in user.swtd_forms],
+                "comments": [c.to_dict() for c in user.comments],
+                "validated_swtd_forms": [s.to_dict() for s in user.validated_swtd_forms]
+            },
             "access_token": self.jwt_service.generate_token(user.email)
         }
 
@@ -77,7 +81,9 @@ class AuthController(Blueprint, BaseController):
         self.check_fields(data, required_fields)
 
         # Ensure that the user exists.
-        user = self.user_service.get_user(email=data.get('email'))
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=data.get('email')).first()
+        )
         if not user:
             raise UserNotFoundError()
         
@@ -90,8 +96,14 @@ class AuthController(Blueprint, BaseController):
             raise AuthenticationError()
 
         response = {
-            "access_token": token,
-            "user": user.to_dict()
+            "user": {
+                **user.to_dict(),
+                "department": user.department.to_dict() if user.department else None,
+                "swtd_forms": [s.to_dict() for s in user.swtd_forms],
+                "comments": [c.to_dict() for c in user.comments],
+                "validated_swtd_forms": [s.to_dict() for s in user.validated_swtd_forms]
+            },
+            "access_token": self.jwt_service.generate_token(user.email)
         }
 
         return self.build_response(response, 200)
