@@ -27,15 +27,27 @@ class TermController(Blueprint, BaseController):
     @jwt_required()
     def index(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
 
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
         if request.method == 'GET':
-            terms = self.term_service.get_all_terms()
-            if len(terms) > 0:
-                terms = list(filter(lambda term: term.is_deleted == False, terms))
+            params = {**request.args}
+
+            try:    
+                if "start_date" in params:
+                    params["start_date"] = datetime.strptime(params.get("start_date"), "%m-%d-%Y").date()
+                if "end_date" in params:
+                    params["end_date"] = datetime.strptime(params.get("end_date"), "%m-%d-%Y").date()
+            except Exception:
+                raise InvalidDateTimeFormat()
+
+            terms = self.term_service.get_term(
+                lambda q, t: q.filter_by(**params, is_deleted=False).all()
+            )
 
             return self.build_response({"terms": [term.to_dict() for term in terms]}, 200)
         if request.method == 'POST':
@@ -71,12 +83,16 @@ class TermController(Blueprint, BaseController):
     @jwt_required()
     def handle_term(self, term_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
 
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
-        term = self.term_service.get_term(term_id)
+        term = self.term_service.get_term(
+            lambda q, t: q.filter_by(id=term_id).first()
+        )
 
         if not term or (term and term.is_deleted):
             raise TermNotFoundError()

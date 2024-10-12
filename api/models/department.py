@@ -15,8 +15,9 @@ class Department(db.Model):
     # Department Data
     name = db.Column(db.String(255), nullable=False)
     required_points = db.Column(db.Float, nullable=False)
-    classification = db.Column(db.String(255), nullable=False)
+    level = db.Column(db.String(255), nullable=False)
     midyear_points = db.Column(db.Float, nullable=False)
+    use_schoolyear = db.Column(db.Boolean, nullable=False)
 
     # Relationships
     members = db.relationship("User", foreign_keys="User.department_id", back_populates="department", lazy=True)
@@ -40,7 +41,8 @@ class Department(db.Model):
             # Department Data
             "name": self.name,
             "required_points": self.required_points,
-            "classification": self.classification,
+            "level": self.level,
             "midyear_points": self.midyear_points,
-            "has_midyear": self.has_midyear
+            "has_midyear": self.has_midyear,
+            "use_schoolyear": self.use_schoolyear
         }

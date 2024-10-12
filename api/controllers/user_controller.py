@@ -61,10 +61,10 @@ class UserController(Blueprint, BaseController):
             response = {
                 "users": [{
                     **u.to_dict(),
-                    "department": user.department.to_dict() if user.department else None,
-                    "swtd_forms": [s.to_dict() for s in user.swtd_forms],
-                    "comments": [c.to_dict() for c in user.comments],
-                    "validated_swtd_forms": [s.to_dict() for s in user.validated_swtd_forms]
+                    "department": u.department.to_dict() if u.department else None,
+                    "swtd_forms": [s.to_dict() for s in u.swtd_forms],
+                    "comments": [c.to_dict() for c in u.comments],
+                    "validated_swtd_forms": [s.to_dict() for s in u.validated_swtd_forms]
                 } for u in users]
             }
 

@@ -10,12 +10,13 @@ class DepartmentService(object):
     def __init__(self, db: SQLAlchemy) -> None:
         self.db = db
 
-    def create_department(self, name: str, required_points: float, classification: str, midyear_points: float) -> Department:
+    def create_department(self, name: str, required_points: float, level: str, midyear_points: float, use_schoolyear: bool) -> Department:
         department = Department(
             name=name,
             required_points=required_points,
-            classification=classification.strip().upper(),
-            midyear_points=midyear_points
+            level=level.strip().upper(),
+            midyear_points=midyear_points,
+            use_schoolyear=use_schoolyear
         )
 
         self.db.session.add(department)
@@ -29,8 +30,9 @@ class DepartmentService(object):
         allowed_fields = {
             "name",
             "required_points",
-            "classification",
-            "midyear_points"
+            "level",
+            "midyear_points",
+            "use_schoolyear"
         }
 
         for field in allowed_fields:
@@ -39,7 +41,7 @@ class DepartmentService(object):
             if value is None:
                 continue
 
-            if field == "classification":
+            if field == "level":
                 value = value.strip().upper()
 
             setattr(department, field, value)

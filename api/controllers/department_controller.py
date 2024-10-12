@@ -41,14 +41,23 @@ class DepartmentController(Blueprint, BaseController):
                 lambda q, d: q.filter_by(**request.args, is_deleted=False).all()
             )
 
-            return self.build_response({"departments": [d.to_dict() for d in departments]}, 200)
+            response = {
+                "departments": [{
+                    **d.to_dict(),
+                    "members": [u.to_dict() for u in d.members],
+                    "head": d.head.to_dict() if d.head else None
+                } for d in departments]
+            }
+
+            return self.build_response(response, 200)
         if request.method == 'POST':
             data = request.json
             required_fields = [
                 "name",
                 "required_points",
-                "classification",
-                "midyear_points"
+                "level",
+                "midyear_points",
+                "use_schoolyear"
             ]
 
             self.check_fields(data, required_fields)
@@ -59,8 +68,9 @@ class DepartmentController(Blueprint, BaseController):
             department = self.department_service.create_department(
                 data.get('name'),
                 data.get('required_points'),
-                data.get('classification'),
-                data.get('midyear_points')
+                data.get('level'),
+                data.get('midyear_points'),
+                data.get('use_schoolyear')
             )
 
             response = {
