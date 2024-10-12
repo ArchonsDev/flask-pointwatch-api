@@ -10,6 +10,7 @@ from .swtd_service import SWTDService
 from .swtd_validation_service import SWTDValidatioNService
 from .notification_service import NotificationService
 from .clearing_service import ClearingService
+from .department_service import DepartmentService
 
 from .. import db, mail, socketio
 
@@ -25,3 +26,4 @@ ft_service = FTService(term_service, clearing_service, user_service)
 swtd_service = SWTDService(db, term_service)
 swtd_validation_service = SWTDValidatioNService(db, ft_service)
 notification_service = NotificationService(db, socketio, term_service, user_service)
+department_service = DepartmentService(db)

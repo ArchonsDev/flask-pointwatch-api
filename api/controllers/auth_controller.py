@@ -56,8 +56,7 @@ class AuthController(Blueprint, BaseController):
             data.get('email'),
             data.get('firstname'),
             data.get('lastname'),
-            data.get('password'),
-            department=data.get('department')
+            data.get('password')
         )
 
         response = {

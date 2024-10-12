@@ -1,6 +1,7 @@
 from typing import Union, Any
-
+from datetime import datetime
 import json
+
 from flask_sqlalchemy import SQLAlchemy
 
 from ..models.point_summary import PointSummary
@@ -17,14 +18,13 @@ class UserService:
         self.password_encoder_service = password_encoder_service
         self.clearing_service = clearing_service
 
-    def create_user(self, employee_id: str, email: str, firstname: str, lastname: str, password: str, department: str=None) -> User:
+    def create_user(self, employee_id: str, email: str, firstname: str, lastname: str, password: str) -> User:
         user = User(
             employee_id=employee_id,
             email=email,
             firstname=firstname,
             lastname=lastname,
             password=self.password_encoder_service.encode_password(password),
-            department=department
         )
         
         self.db.session.add(user)
@@ -60,8 +60,11 @@ class UserService:
   
         return user_query.all()
 
-    def update_user(self, user: User, **data: dict[str, Any]) -> User:
+    def update_user(self, user: User, data: dict[str, Any]) -> User:
         for key, value in data.items():
+            if value is None:
+                continue
+
             # Ensure provided key is valid.
             if not hasattr(User, key):
                 raise InvalidParameterError(key)
@@ -71,6 +74,7 @@ class UserService:
 
             setattr(user, key, value)
 
+        user.date_modified = datetime.now()
         self.db.session.commit()
         return user
     
@@ -111,12 +115,7 @@ class UserService:
             elif status == 'REJECTED':
                 points.invalid_points += form.points
 
-        # Compute LACKING points
-        with open('point_requirements.json', 'r') as f:
-            POINT_REQ = json.load(f)
-            TERM_TYPE_REQ = POINT_REQ.get(term.type)
-
-            points.required_points = TERM_TYPE_REQ.get(user.department, 0)
+        points.required_points = user.department.required_points if user.department else -1
 
         return points
     
