@@ -10,12 +10,12 @@ class DepartmentService(object):
     def __init__(self, db: SQLAlchemy) -> None:
         self.db = db
 
-    def create_department(self, name: str, required_points: int, classification: str, has_midyear: bool) -> Department:
+    def create_department(self, name: str, required_points: float, classification: str, midyear_points: float) -> Department:
         department = Department(
             name=name,
             required_points=required_points,
-            classification=classification,
-            has_midyear=has_midyear
+            classification=classification.strip().upper(),
+            midyear_points=midyear_points
         )
 
         self.db.session.add(department)
@@ -26,24 +26,32 @@ class DepartmentService(object):
         return filter_func(Department.query, Department)
 
     def update_department(self, department: Department, **data: dict[str, Any]) -> Department:
-        updated_fields = {
-            "name": data.get("name"),
-            "classification": data.get("classification"),
-            "has_midyear": data.get("has_midyear")
+        allowed_fields = {
+            "name",
+            "required_points",
+            "classification",
+            "midyear_points"
         }
 
-        for key, value in updated_fields.items():
-            # Ensure provided key is valid.
-            if not hasattr(Department, key):
-                raise InvalidParameterError(key)
+        for field in allowed_fields:
+            value = data.get(field)
 
-            setattr(department, key, value)
+            if value is None:
+                continue
+
+            if field == "classification":
+                value = value.strip().upper()
+
+            setattr(department, field, value)
 
         department.date_modified = datetime.now()
         self.db.session.commit()
         return department
 
     def delete_department(self, department: Department) -> None:
+        for u in department.members:
+            u.department_id = None
+
         department.is_deleted = True
         department.date_modified = datetime.now()
         self.db.session.commit()

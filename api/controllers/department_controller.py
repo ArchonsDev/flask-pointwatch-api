@@ -26,24 +26,29 @@ class DepartmentController(Blueprint, BaseController):
     @jwt_required()
     def index(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
 
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
         if request.method == 'GET':
-            departments = self.department_service.get_all_departments()
-            if len(departments) > 0:
-                departments = list(filter(lambda d: d.is_deleted == False, departments))
+            if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+                raise InsufficientPermissionsError("Cannot retrieve department list.")
+
+            departments = self.department_service.get_department(
+                lambda q, d: q.filter_by(**request.args, is_deleted=False).all()
+            )
 
             return self.build_response({"departments": [d.to_dict() for d in departments]}, 200)
         if request.method == 'POST':
             data = request.json
             required_fields = [
-                'name',
-                'required_points',
-                'classification',
-                'has_midyear'
+                "name",
+                "required_points",
+                "classification",
+                "midyear_points"
             ]
 
             self.check_fields(data, required_fields)
@@ -54,34 +59,62 @@ class DepartmentController(Blueprint, BaseController):
             department = self.department_service.create_department(
                 data.get('name'),
                 data.get('required_points'),
-                data.get('classification').strip().upper(),
-                data.get('has_midyear')
+                data.get('classification'),
+                data.get('midyear_points')
             )
 
-            return self.build_response(department.to_dict(), 200)
+            response = {
+                **department.to_dict(),
+                "members": [u.to_dict() for u in department.members],
+                "head": department.head.to_dict() if department.head else None
+            }
+
+            return self.build_response(response, 200)
     
     @jwt_required()
     def handle_department(self, department_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
 
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
-        department = self.department_service.get_department(department_id)
-
+        department = self.department_service.get_department(
+            lambda q, d: q.filter_by(id=department_id).first()
+        )
         if not department or (department and department.is_deleted):
             raise DepartmentNotFoundError()
 
-        if request.method == 'GET':            
-            return self.build_response(department.to_dict(), 200)
+        if request.method == 'GET':
+            if not requester.is_head and not requester in department.members and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+                raise InsufficientPermissionsError("Could not retrieve department data.")
+
+            response = {
+                **department.to_dict(),
+                "members": [u.to_dict() for u in department.members],
+                "head": department.head.to_dict() if department.head else None
+            }
+            
+            return self.build_response(response, 200)
         if request.method == 'PUT':
-            data = {**request.json}
+            if not requester.is_head and not requester in department.members and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+                raise InsufficientPermissionsError("Could not retrieve department data.")
 
-            department = self.department_service.update_department(department, **data)
+            department = self.department_service.update_department(department, **request.json)
 
-            return self.build_response(department.to_dict(), 200)
+            response = {
+                **department.to_dict(),
+                "members": [u.to_dict() for u in department.members],
+                "head": department.head.to_dict() if department.head else None
+            }
+
+            return self.build_response(response, 200)
         if request.method == 'DELETE':
+            if not requester.is_head and not requester in department.members and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+                raise InsufficientPermissionsError("Could not retrieve department data.")
+
             self.department_service.delete_department(department)
             
             return self.build_response({"message": "Department deleted"}, 200)

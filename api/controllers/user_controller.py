@@ -34,7 +34,9 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def get_all_users(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
 
         # Ensure that the requester exists.
         if not requester or (requester and requester.is_deleted):
@@ -52,12 +54,21 @@ class UserController(Blueprint, BaseController):
             
             # Process Params
             params = {**request.args}
-            params["is_deleted"] = False
+            users = self.user_service.get_user(
+                lambda q, u: q.filter_by(is_deleted=False, **params).all()
+            )
 
-            # Query users using params
-            users = self.user_service.get_all_users(params)
+            response = {
+                "users": [{
+                    **u.to_dict(),
+                    "department": user.department.to_dict() if user.department else None,
+                    "swtd_forms": [s.to_dict() for s in user.swtd_forms],
+                    "comments": [c.to_dict() for c in user.comments],
+                    "validated_swtd_forms": [s.to_dict() for s in user.validated_swtd_forms]
+                } for u in users]
+            }
 
-            return self.build_response({"users": [user.to_dict() for user in users]}, 200)
+            return self.build_response(response, 200)
 
     @jwt_required()
     def process_user(self, user_id: int) -> Response:
@@ -87,7 +98,18 @@ class UserController(Blueprint, BaseController):
             if not self.auth_service.has_permissions(requester, minimum_auth='head') and requester.id != user_id:
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
-            return self.build_response(user.to_dict(), 200)
+            response = {
+                "user": {
+                    **user.to_dict(),
+                    "department": user.department.to_dict() if user.department else None,
+                    "swtd_forms": [s.to_dict() for s in user.swtd_forms],
+                    "comments": [c.to_dict() for c in user.comments],
+                    "validated_swtd_forms": [s.to_dict() for s in user.validated_swtd_forms]
+                },
+                "access_token": self.jwt_service.generate_token(user.email)
+            }
+
+            return self.build_response(response, 200)
         elif request.method == 'PUT':
             # URI: PUT /users/<user_id>
             # Description: Updates a user specified by the ID.
@@ -112,10 +134,11 @@ class UserController(Blueprint, BaseController):
             
             if 'department_id' in data:
                 department = self.department_service.get_department(
-                    lambda q, d: q.filter_by(id=data.get("id")).first()
+                    lambda q, d: q.filter_by(id=data.get("department_id")).first()
                 )
 
                 if not department:
+                    print("I was called")
                     raise DepartmentNotFoundError()
             
             user = self.user_service.update_user(user, data)
