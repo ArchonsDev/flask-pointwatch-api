@@ -118,7 +118,7 @@ class AuthController(Blueprint, BaseController):
         self.check_fields(data, required_fields)
         # Check if the email is registered to a user.
         user = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=email, is_deleted=False).first()
+            lambda q, u: q.filter_by(email=data.get("email"), is_deleted=False).first()
         )
         if user:
             self.mail_service.send_recovery_mail(user.email, user.firstname)

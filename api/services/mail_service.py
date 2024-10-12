@@ -22,5 +22,5 @@ class MailService:
         with current_app.open_resource('templates/account_recovery_instructions_template.txt', 'r') as f:
             mail_template = f.read()
 
-        mail_body = mail_template.format(reset_link=os.get_env("APP_URL"), username=firstname, token=token)
+        mail_body = mail_template.format(reset_link=os.getenv("APP_URL"), username=firstname, token=token)
         self.send_mail('Account Recovery | PointWatch', [email,], mail_body)
