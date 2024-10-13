@@ -176,7 +176,7 @@ class SWTDController(Blueprint, BaseController):
             raise SWTDFormNotFoundError()
 
         if request.method == 'GET':
-            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
             
             response = {
@@ -202,7 +202,7 @@ class SWTDController(Blueprint, BaseController):
 
             return self.build_response(response, 200)
         elif request.method == 'PUT':
-            if swtd.author_id != requester.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if swtd.author_id != requester.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot update SWTD form data.")
             
             data = {**request.json}
@@ -265,7 +265,7 @@ class SWTDController(Blueprint, BaseController):
 
             return self.build_response(response, 200)
         elif request.method == 'DELETE':
-            if swtd.author_id != requester.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if swtd.author_id != requester.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot delete SWTD form.")
             
             self.swtd_service.delete_swtd(swtd)
@@ -287,7 +287,7 @@ class SWTDController(Blueprint, BaseController):
             raise SWTDFormNotFoundError()
 
         if request.method == 'GET':
-            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD form comments.")
 
             params = {
@@ -311,7 +311,7 @@ class SWTDController(Blueprint, BaseController):
 
             self.check_fields(data, required_fields)
 
-            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot add an SWTD form comment.")
             
             comment = self.swtd_comment_service.create_comment(**data)
@@ -334,7 +334,7 @@ class SWTDController(Blueprint, BaseController):
             raise SWTDCommentNotFoundError()
         
         if request.method == 'GET':
-            if (comment.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if (comment.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD form comment.")
             
             return self.build_response({"data": comment.to_dict()}, 200)
@@ -347,7 +347,7 @@ class SWTDController(Blueprint, BaseController):
             self.swtd_comment_service.update_comment(comment, **data)
             return redirect(url_for('swtd.process_swtd', form_id=swtd.id))
         if request.method == 'DELETE':
-            if (comment.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if (comment.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot delete SWTD form comment.")
             
             self.swtd_comment_service.delete_comment(comment)
@@ -366,7 +366,7 @@ class SWTDController(Blueprint, BaseController):
             raise SWTDFormNotFoundError()
 
         if request.method == 'GET':
-            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD form proof.")
 
             params = {**request.args}
@@ -382,7 +382,7 @@ class SWTDController(Blueprint, BaseController):
 
             return Response(content, mimetype=proof.content_type, status=200)
         if request.method == 'POST':
-            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot add SWTD form proof.")
             
             files = request.files.getlist('files')
@@ -396,7 +396,7 @@ class SWTDController(Blueprint, BaseController):
             
             return redirect(url_for('swtd.process_swtd', form_id=swtd.id, validation_status="PENDING"))
         if request.method == "DELETE":
-            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if (swtd.author_id != requester.id or swtd.is_deleted) and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot delete SWTD form proof.")
 
             params = {**request.args}
