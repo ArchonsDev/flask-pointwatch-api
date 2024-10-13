@@ -1,22 +1,43 @@
 import os
 from datetime import datetime
+from typing import Any, Callable, Iterable
 
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from werkzeug.datastructures import FileStorage
+from sqlalchemy.orm import Query
 import shutil
 import io
 
+
+from ..models.proof import Proof
 from ..models.user import User
 from ..services.term_service import TermService
 
 class FTService:
-    def __init__(self, term_service, clearing_service, user_service):
-        self.data_dir = os.path.abspath('data')
+    def __init__(self, db, term_service, clearing_service, user_service):
+        self.data_dir = os.getenv('DATA_DIR', os.path.abspath('data'))
+        self.db = db
         self.term_service = term_service
         self.clearing_service = clearing_service
         self.user_service = user_service
 
-    def save(self, user_id, swtd_id, file):
+    def create_proof(self, **data: dict[str, Any]) -> Proof:
+        proof = Proof(
+            path=data.get("path"),
+            filename=data.get("filename"),
+            content_type=data.get("content_type"),
+            swtd_form_id=data.get("swtd_form_id")
+        )
+
+        self.db.session.add(proof)
+        self.db.session.commit()
+        return proof
+
+    def get_proof(self, filter_func: Callable[[Query, Proof], Iterable]) -> Proof:
+        return filter_func(Proof.query, Proof)
+
+    def save(self, user_id: int, swtd_id: int, file: FileStorage) -> Proof:
         user_fp = os.path.join(self.data_dir, str(user_id))
 
         if not os.path.exists(user_fp):
@@ -29,24 +50,25 @@ class FTService:
 
         fp = os.path.join(user_swtd_fp, file.filename)
 
+        proof = self.create_proof(
+            path=fp,
+            filename=file.filename,
+            content_type=file.content_type,
+            swtd_form_id=swtd_id
+        )
+
         file.save(fp)
+        return proof
 
-    def delete(self, user_id, swtd_id):
-        fp = os.path.join(self.data_dir, str(user_id), str(swtd_id))
-        shutil.rmtree(fp)
-
-    def get_file_type(self, filename):
-        _, extension = os.path.splitext(filename)
-        if extension.lower() == '.txt':
-            return 'text/plain'
-        elif extension.lower() in ['.jpg', '.jpeg']:
-            return 'image/jpeg'
-        elif extension.lower() == '.png':
-            return 'image/png'
-        elif extension.lower() == '.pdf':
-            return 'application/pdf'
-        else:
-            return 'application/octet-stream'
+    def delete_proof(self, proof: Proof):
+        try:
+            os.remove(proof.path)  # Remove only the specific file
+            self.db.session.delete(proof)  # Optionally, remove the proof entry from the database
+            self.db.session.commit()  # Commit the changes to the database
+        except FileNotFoundError:
+            print(f"File {proof.path} not found.")
+        except Exception as e:
+            print(f"Error removing file: {e}")
         
     def dump_user_swtd_data(self, requester: User, user: User) -> io.BytesIO:
         buffer = io.BytesIO()

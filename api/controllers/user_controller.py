@@ -54,9 +54,12 @@ class UserController(Blueprint, BaseController):
                 raise InsufficientPermissionsError("Cannot retrieve user list.")
             
             # Process Params
-            params = {**request.args}
+            params = {
+                "is_deleted": False,
+                **request.args
+            }
             users = self.user_service.get_user(
-                lambda q, u: q.filter_by(is_deleted=False, **params).all()
+                lambda q, u: q.filter_by(**params).all()
             )
 
             response = {
@@ -197,12 +200,16 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def get_user_swtds(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         # Ensure the requester is authorized.
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = self.user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         # Ensure the target is registered.
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
@@ -211,23 +218,12 @@ class UserController(Blueprint, BaseController):
             if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user SWTDs")
             
-            params = request.args
-            date_fmt = "%m-%d-%Y"
-            start_date = None
-            end_date = None
+            params = {
+                "is_deleted": False,
+                **request.args
+            }
 
-            if 'start_date' in params:
-                start_date = datetime.strptime(params.get('start_date'), date_fmt).date()
-
-            if 'end_date' in params:
-                end_date = datetime.strptime(params.get('end_date'), date_fmt).date()
-
-            swtd_forms = self.user_service.get_user_swtd_forms(user, start_date=start_date, end_date=end_date)
-
-            if len(swtd_forms) > 0:
-                swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
-            
-            return self.build_response({"swtd_forms": [form.to_dict() for form in swtd_forms]}, 200)
+            return redirect(url_for('swtd.index',  author_id=1, **params))
 
     @jwt_required()
     def get_user_department(self, user_id: int) -> Response:
@@ -269,7 +265,7 @@ class UserController(Blueprint, BaseController):
             if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot get user term data.")
     
-            term_summary = self.ser_service.get_term_summary(user, term)
+            term_summary = self.user_service.get_term_summary(user, term)
             return self.build_response(term_summary, 200)
         if request.method == 'POST':
             if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):

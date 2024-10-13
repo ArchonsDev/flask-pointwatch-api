@@ -20,12 +20,12 @@ class SWTDForm(db.Model):
     end_date = db.Column(db.Date, nullable=False)
     total_hours = db.Column(db.Float, nullable=False)
     points = db.Column(db.Float, nullable=False)
-    benefits = db.Column(db.String(2000), nullable=False)
+    benefits = db.Column(db.Text, nullable=False)
     has_deliverables = db.Column(db.Boolean, nullable=False)
 
     # Form Validation
-    validation_status = db.Column(db.String(255), nullable=False, default="PENDING")
     date_validated = db.Column(db.DateTime)
+    validation_status = db.Column(db.String(255), nullable=False, default="PENDING")
 
     # Foreign Keys
     author_id = db.Column(db.Integer, db.ForeignKey('tblusers.id'), nullable=False)
@@ -34,9 +34,9 @@ class SWTDForm(db.Model):
 
     # Relationships
     author = db.relationship("User", foreign_keys=[author_id], back_populates="swtd_forms", uselist=False, lazy=True)
+    comments = db.relationship("SWTDComment", foreign_keys="SWTDComment.swtd_id", back_populates="swtd_form", lazy=True)
     proof = db.relationship("Proof", foreign_keys="Proof.swtd_form_id", back_populates="swtd_form", lazy=True)
     term = db.relationship("Term", foreign_keys=[term_id], back_populates="swtd_forms", uselist=False, lazy=True)
-    comments = db.relationship("SWTDComment", foreign_keys="SWTDComment.swtd_id", back_populates="swtd_form", lazy=True)
     validator = db.relationship("User", foreign_keys=[validator_id], back_populates="validated_swtd_forms", uselist=False, lazy=True)
 
     def to_dict(self) -> dict[str, Any]:
@@ -56,5 +56,9 @@ class SWTDForm(db.Model):
             "total_hours": self.total_hours,
             "points": self.points,
             "benefits": self.benefits,
-            "has_deliverables": self.has_deliverables
+            "has_deliverables": self.has_deliverables,
+
+            # Form Validation
+            "date_validated": self.date_validated.strftime("%m-%d-%Y %H:%M") if self.date_validated else None,
+            "validation_status": self.validation_status
         }

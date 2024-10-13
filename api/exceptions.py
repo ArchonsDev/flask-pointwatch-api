@@ -51,3 +51,6 @@ class DepartmentNotFoundError(Exception):
 
 class UserNotFoundError(Exception):
     pass
+
+class ProofNotFoundError(Exception):
+    pass
