@@ -50,7 +50,7 @@ class UserController(Blueprint, BaseController):
             # Params: Refer to user model.
 
             # Ensure that the requester has permissions.
-            if not self.auth_service.has_permissions(requester, minimum_auth='head'):
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user list.")
             
             # Process Params
@@ -109,9 +109,11 @@ class UserController(Blueprint, BaseController):
             # Description: Returns a user matching the specified ID.
             # Required access level: 0 (All)-For querying own user data | 2 (Head) for querying other user data.
             # Params: None
+            is_owner = requester == user
+            is_head = requester == user.department.head if user.department else None
 
             # Ensure that the requester has permission.
-            if not self.auth_service.has_permissions(requester, minimum_auth='head') and requester.id != user_id:
+            if not is_owner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
             response = {
@@ -149,15 +151,19 @@ class UserController(Blueprint, BaseController):
             # - access_level: int
             # - department_id: int
 
-            data = request.json
+            is_owner = requester = user
 
             # Ensure that the requester has the required permission.
-            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot update user data.")
-            if 'access_level' in data and not self.auth_service.has_permissions(requester, 'custon', data.get('access_level') + 1):
+
+            data = request.json
+
+            if 'point_balance' in data and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot update user point balance.")
+
+            if 'access_level' in data and not self.auth_service.has_permissions(requester, 'custon', data.get('access_level', 0) + 1):
                 raise InsufficientPermissionsError("Cannot update user access level.")
-            if 'is_head' in data and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot change user head status.")
             
             if 'department_id' in data:
                 department = self.department_service.get_department(
@@ -198,8 +204,10 @@ class UserController(Blueprint, BaseController):
             # Description: Disables the user specified by the ID.
             # Required access level: 0 (All) - For own own account | 2 (Head) - For other users.
             # Params: None
+            
+            is_owner = requeser == user
 
-            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_woner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot delete user.")
 
             self.user_service.delete_user(user)
@@ -224,9 +232,11 @@ class UserController(Blueprint, BaseController):
             # Required access level: 0 (All) - For own own account | 2 (Head) - For other users.
             # Params:
             # - term_id : ID of Term.
+            is_owner = requester == user
+            is_head = requester == user.department.head if user.department else None
 
             # Ensure that the requester has permission.
-            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_woner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user points.")
             
             term_id = int(request.args.get('term_id', 0))
@@ -261,7 +271,10 @@ class UserController(Blueprint, BaseController):
             raise UserNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            is_owner = requester == user
+            is_head = requester == user.department.head if user.department else None
+
+            if not is_owner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user SWTDs")
             
             params = {
@@ -308,19 +321,29 @@ class UserController(Blueprint, BaseController):
             raise TermNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
+            is_owner = requester == user
+            is_head = requester == user.department.head if user.department else None
+
+            if not is_owner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot get user term data.")
     
             term_summary = self.user_service.get_term_summary(user, term)
             return self.build_response(term_summary, 200)
         if request.method == 'POST':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
-                raise InsufficientPermissionsError("Cannot update user clearance.")
+            is_head = requester ==  user.department.head if user.department else None
+
+            if not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot grant user clearance.")
 
             self.user_service.grant_clearance(requester, user, term)
 
             return redirect(url_for('user.process_user', user_id=user.id))
         if request.method == 'DELETE':
+            is_head = requester ==  user.department.head if user.department else None
+
+            if not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot revoke user clearance.")
+
             self.user_service.revoke_clearance(user, term)
             
             return redirect(url_for('user.process_user', user_id=user.id))

@@ -51,6 +51,9 @@ class TermController(Blueprint, BaseController):
 
             return self.build_response({"terms": [term.to_dict() for term in terms]}, 200)
         if request.method == 'POST':
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot create Term.")
+
             data = request.json
             required_fields = [
                 'name',
@@ -61,9 +64,6 @@ class TermController(Blueprint, BaseController):
 
             self.check_fields(data, required_fields)
 
-            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot create Term,")
-            
             try:
                 date_fmt = '%m-%d-%Y'
                 start_date = datetime.strptime(data.get('start_date'), date_fmt)
@@ -97,9 +97,13 @@ class TermController(Blueprint, BaseController):
         if not term or (term and term.is_deleted):
             raise TermNotFoundError()
 
-        if request.method == 'GET':            
-            return self.build_response(term.to_dict(), 200)
+        if request.method == 'GET':         
+            response = {"data": term.to_dict()}  
+            return self.build_response(response, 200)
         if request.method == 'PUT':
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot update Term.")
+
             data = {**request.json}
 
             try:
@@ -118,6 +122,9 @@ class TermController(Blueprint, BaseController):
 
             return self.build_response(term.to_dict(), 200)
         if request.method == 'DELETE':
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot delete Term.")
+
             self.term_service.delete_term(term)
             
             return self.build_response({"message": "Term deleted"}, 200)

@@ -34,23 +34,30 @@ class DepartmentController(Blueprint, BaseController):
             raise AuthenticationError()
 
         if request.method == 'GET':
-            if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            args = {**request.args}
+
+            use_basic_view = args.pop("basic_view", '').lower() in ("true", "1")
+
+            if not use_basic_view and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
                 raise InsufficientPermissionsError("Cannot retrieve department list.")
 
             departments = self.department_service.get_department(
-                lambda q, d: q.filter_by(**request.args, is_deleted=False).all()
+                lambda q, d: q.filter_by(**args, is_deleted=False).all()
             )
 
             response = {
                 "departments": [{
                     **d.to_dict(),
-                    "members": [u.to_dict() for u in d.members],
-                    "head": d.head.to_dict() if d.head else None
+                    "members": [u.to_dict() for u in d.members] if not use_basic_view else None,
+                    "head": d.head.to_dict() if d.head and not use_basic_view else None
                 } for d in departments]
             }
 
             return self.build_response(response, 200)
         if request.method == 'POST':
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot create Department.")
+
             data = request.json
             required_fields = [
                 "name",
@@ -62,9 +69,6 @@ class DepartmentController(Blueprint, BaseController):
 
             self.check_fields(data, required_fields)
 
-            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot create Department.")
-            
             department = self.department_service.create_department(
                 data.get('name'),
                 data.get('required_points'),
@@ -98,19 +102,25 @@ class DepartmentController(Blueprint, BaseController):
             raise DepartmentNotFoundError()
 
         if request.method == 'GET':
-            if not requester.is_head and not requester in department.members and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            is_member = requester in department.members
+            is_head = requester == department.head
+            use_basic_view = request.args.get("basic_view", '') in ("true", "1")
+
+            if not is_member and not use_basic_view and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
                 raise InsufficientPermissionsError("Could not retrieve department data.")
 
             response = {
                 **department.to_dict(),
-                "members": [u.to_dict() for u in department.members],
-                "head": department.head.to_dict() if department.head else None
+                "members": [u.to_dict() for u in department.members] if is_head and not use_basic_view else None,
+                "head": department.head.to_dict() if department.head and not use_basic_view else None
             }
             
             return self.build_response(response, 200)
         if request.method == 'PUT':
-            if not requester.is_head and not requester in department.members and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-                raise InsufficientPermissionsError("Could not retrieve department data.")
+            is_head = requester == department.head
+
+            if not is_head and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+                raise InsufficientPermissionsError("Could not update department data.")
 
             department = self.department_service.update_department(department, **request.json)
 
@@ -122,8 +132,8 @@ class DepartmentController(Blueprint, BaseController):
 
             return self.build_response(response, 200)
         if request.method == 'DELETE':
-            if not requester.is_head and not requester in department.members and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-                raise InsufficientPermissionsError("Could not retrieve department data.")
+            if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+                raise InsufficientPermissionsError("Could not delete department.")
 
             self.department_service.delete_department(department)
             
