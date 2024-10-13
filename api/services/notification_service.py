@@ -41,51 +41,48 @@ class NotificationService:
         }
 
         notification = self.create_notification(
-            actor.id,
-            target.id,
-            data
+            actor_id=actor.id,
+            target_id=target.id,
+            content=data
         )
 
         self.trigger_ws_event('swtd_validation_update', notification.to_dict())
 
     def handle_after_insert_clearing(self, mapper: Mapper, connection: Connection, clearing: Clearing) -> None:
-        actor = self.user_service.get_user(id=clearing.cleared_by)
-        target = self.user_service.get_user(id=clearing.user_id)
-        term = self.term_service.get_term(clearing.term_id)
+        actor = self.user_service.get_user(lambda q, u: q.filter_by(id=clearing.clearer_id).first())
+        target = self.user_service.get_user(lambda q, u: q.filter_by(id=clearing.user_id).first())
+        term = self.term_service.get_term(lambda q, t: q.filter_by(id=clearing.term_id).first())
 
         notification = self.create_notification(
-            actor.id,
-            target.id,
-            term.to_dict()
+            actor_id=actor.id,
+            target_id=target.id,
+            content=term.to_dict()
         )
 
         self.trigger_ws_event('term_clearing_update', notification.to_dict())
 
     def handle_after_delete_clearing(self, mapper: Mapper, connection: Connection, clearing: Clearing) -> None:
-        actor = self.user_service.get_user(id=clearing.cleared_by)
-        target = self.user_service.get_user(id=clearing.user_id)
-        term = self.term_service.get_term(clearing.term_id)
+        actor = self.user_service.get_user(lambda q, u: q.filter_by(id=clearing.clearer_id).first())
+        target = self.user_service.get_user(lambda q, u: q.filter_by(id=clearing.user_id).first())
+        term = self.term_service.get_term(lambda q, t: q.filter_by(id=clearing.term_id).first())
 
         notification = self.create_notification(
-            actor.id,
-            target.id,
-            term.to_dict()
+            actor_id=actor.id,
+            target_id=target.id,
+            content=term.to_dict()
         )
 
         self.trigger_ws_event('term_clearing_update', notification.to_dict())
 
-    def create_notification(self, actor_id: int, target_id: int, data: dict[str, Any]) -> Notification:
+    def create_notification(self, **data: dict[str, Any]) -> Notification:
         notification = Notification(
-            actor_id=actor_id,
-            target_id=target_id,
-            data=data,
-            date=datetime.now(),
-            is_deleted=False,
-            is_viewed=False
+            date_created=datetime.now(),
+            actor_id=data.get("actor_id"),
+            target_id=data.get("target_id"),
+            data=data.get("content")
         )
 
         self.db.session.add(notification)
-
         return notification
 
     def update_notification(self, notification: Notification, **data: dict[str, Any]) -> None:

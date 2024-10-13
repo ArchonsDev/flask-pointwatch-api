@@ -108,15 +108,19 @@ class UserService:
     
     def get_term_summary(self, user: User, term: Term) -> dict[str, Any]:
         points = self.get_point_summary(user, term)
-        clearing = self.clearing_service.get_user_term_clearing(user.id, term.id)
+        clearing = self.clearing_service.get_clearing(
+            lambda q, c: q.filter_by(user_id=user.id, term_id=term.id, is_deleted=False).first()
+        )
 
         return {
             "is_cleared": clearing is not None,
             "points": points
         }
 
-    def clear_user_for_term(self, user: User, target: User, term: Term) -> None:
-        if self.clearing_service.get_user_term_clearing(target.id, term.id):
+    def grant_clearance(self, user: User, target: User, term: Term) -> None:
+        if self.clearing_service.get_clearing(
+            lambda q, c: q.filter_by(user_id=target.id, term_id=term.id, is_deleted=False).first()
+        ):
             raise TermClearingError("User already cleared for this term.")
 
         points = self.get_point_summary(target, term)
@@ -128,22 +132,27 @@ class UserService:
         target.point_balance += points.excess_points - points.lacking_points
         target.date_modified = datetime.now()
 
-        self.clearing_service.create_clearing(
-            target.id,
-            term.id,
-            user.id,
+        clearing = self.clearing_service.create_clearing(
+            user_id=target.id,
+            term_id=term.id,
+            clearer_id=user.id,
             applied_points=points.lacking_points
         )
 
-    def unclear_user_for_term(self, target: User, term: Term) -> None:
+        return clearing
+
+    def revoke_clearance(self, target: User, term: Term) -> None:
         points = self.get_point_summary(target, term)
 
-        clearing = self.clearing_service.get_user_term_clearing(target.id, term.id)
+        clearing = self.clearing_service.get_clearing(
+            lambda q, c: q.filter_by(user_id=target.id, term_id=term.id, is_deleted=False).first()
+        )
         if not clearing:
             raise TermClearingError("User has not been cleared for this term.")
 
         target.point_balance -= points.excess_points - clearing.applied_points
         target.date_modified = datetime.now()
-
-        self.db.session.delete(clearing)
         self.db.session.commit()
+
+        clearing = self.clearing_service.update_clearing(clearing, is_deleted=True)
+        return clearing

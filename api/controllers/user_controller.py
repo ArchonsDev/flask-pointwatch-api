@@ -63,12 +63,24 @@ class UserController(Blueprint, BaseController):
             )
 
             response = {
-                "users": [{
+                "data": [{
                     **u.to_dict(),
-                    "department": u.department.to_dict() if u.department else None,
-                    "swtd_forms": [s.to_dict() for s in u.swtd_forms],
-                    "comments": [c.to_dict() for c in u.comments],
-                    "validated_swtd_forms": [s.to_dict() for s in u.validated_swtd_forms]
+                    "clearances": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.term.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearances))],
+                    "clearings": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.user.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False,u.clearings))],
+                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, u.comments))],
+                    "department": u.department.to_dict() if u.department and u.department.is_deleted == False else None,
+                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.received_notifications))],
+                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.swtd_forms))],
+                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.triggered_notifications))],
+                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.validated_swtd_forms))]
                 } for u in users]
             }
 
@@ -103,14 +115,25 @@ class UserController(Blueprint, BaseController):
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
             response = {
-                "user": {
+                "data": {
                     **user.to_dict(),
-                    "department": user.department.to_dict() if user.department else None,
-                    "swtd_forms": [s.to_dict() for s in user.swtd_forms],
-                    "comments": [c.to_dict() for c in user.comments],
-                    "validated_swtd_forms": [s.to_dict() for s in user.validated_swtd_forms]
-                },
-                "access_token": self.jwt_service.generate_token(user.email)
+                    "clearances": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.term.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
+                    "clearings": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.user.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
+                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
+                    "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
+                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
+                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
+                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
+                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
+                }
             }
 
             return self.build_response(response, 200)
@@ -146,7 +169,30 @@ class UserController(Blueprint, BaseController):
                     raise DepartmentNotFoundError()
             
             user = self.user_service.update_user(user, data)
-            return self.build_response(user.to_dict(), 200)
+
+            response = {
+                "data": {
+                    **user.to_dict(),
+                    "clearances": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.term.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
+                    "clearings": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.user.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
+                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
+                    "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
+                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
+                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
+                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
+                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
+                }
+            }
+
+            return self.build_response(response, 200)
         elif request.method =='DELETE':
             # URI: DEKETE /users/<user_id>
             # Description: Disables the user specified by the ID.
@@ -250,7 +296,7 @@ class UserController(Blueprint, BaseController):
             raise AuthenticationError()
         
         user = user_service.get_user(
-            lambda q, u: q.filter_by(id=user_id)
+            lambda q, u: q.filter_by(id=user_id).first()
         )
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
@@ -271,13 +317,13 @@ class UserController(Blueprint, BaseController):
             if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot update user clearance.")
 
-            self.user_service.clear_user_for_term(requester, user, term)
+            self.user_service.grant_clearance(requester, user, term)
 
-            return self.build_response({'message': 'Employee clearance granted for term.'}, 200)
+            return redirect(url_for('user.process_user', user_id=user.id))
         if request.method == 'DELETE':
-            self.user_service.unclear_user_for_term(user, term)
-
-            return self.build_response({'message': 'Employee clearance revoked for term.'}, 200)
+            self.user_service.revoke_clearance(user, term)
+            
+            return redirect(url_for('user.process_user', user_id=user.id))
         
     @jwt_required()
     def export_swtd_data(self, user_id: int) -> Response:

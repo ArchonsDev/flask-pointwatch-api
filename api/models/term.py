@@ -20,6 +20,7 @@ class Term(db.Model):
 
     # Relationships
     swtd_forms = db.relationship("SWTDForm", foreign_keys="SWTDForm.term_id", back_populates='term', lazy=True)
+    clearances = db.relationship("Clearing", foreign_keys="Clearing.term_id", back_populates="term", lazy=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {

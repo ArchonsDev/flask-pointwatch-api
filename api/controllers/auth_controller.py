@@ -57,12 +57,24 @@ class AuthController(Blueprint, BaseController):
         user = self.user_service.create_user(**data)
 
         response = {
-            "user": {
+            "data": {
                 **user.to_dict(),
-                "department": user.department.to_dict() if user.department else None,
-                "swtd_forms": [s.to_dict() for s in user.swtd_forms],
-                "comments": [c.to_dict() for c in user.comments],
-                "validated_swtd_forms": [s.to_dict() for s in user.validated_swtd_forms]
+                "clearances": [{
+                    **c.to_dict(),
+                    "user": c.user.to_dict(),
+                    "term": c.term.to_dict()
+                } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
+                "clearings": [{
+                    **c.to_dict(),
+                    "user": c.user.to_dict(),
+                    "term": c.user.to_dict()
+                } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
+                "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
+                "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
+                "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
+                "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
+                "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
+                "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
             },
             "access_token": self.jwt_service.generate_token(user.email)
         }
@@ -95,12 +107,24 @@ class AuthController(Blueprint, BaseController):
             raise AuthenticationError()
 
         response = {
-            "user": {
+            "data": {
                 **user.to_dict(),
-                "department": user.department.to_dict() if user.department else None,
-                "swtd_forms": [s.to_dict() for s in user.swtd_forms],
-                "comments": [c.to_dict() for c in user.comments],
-                "validated_swtd_forms": [s.to_dict() for s in user.validated_swtd_forms]
+                "clearances": [{
+                    **c.to_dict(),
+                    "user": c.user.to_dict(),
+                    "term": c.term.to_dict()
+                } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
+                "clearings": [{
+                    **c.to_dict(),
+                    "user": c.user.to_dict(),
+                    "term": c.user.to_dict()
+                } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
+                "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
+                "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
+                "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
+                "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
+                "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
+                "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
             },
             "access_token": self.jwt_service.generate_token(user.email)
         }
