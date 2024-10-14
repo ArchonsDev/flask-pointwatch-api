@@ -2,6 +2,7 @@ from typing import Any
 from datetime import datetime
 
 from .. import db
+from .assoc_table import department_head
 
 class Department(db.Model):
     __tablename__ = "tbldepartments"
@@ -19,16 +20,16 @@ class Department(db.Model):
     midyear_points = db.Column(db.Float, nullable=False)
     use_schoolyear = db.Column(db.Boolean, nullable=False)
 
+    # Foreign Keys
+    head_id = db.Column(db.Integer, db.ForeignKey("tblusers.id"), unique=True)
+
     # Relationships
+    head = db.relationship("User", secondary=department_head, back_populates="headed_department", uselist=False, lazy=True)
     members = db.relationship("User", foreign_keys="User.department_id", back_populates="department", lazy=True)
 
     @property
     def has_midyear(self) -> bool:
         return self.midyear_points > 0
-
-    @property
-    def head(self):
-        return next((u for u in self.members if u.is_head), None)
 
     def to_dict(self) -> dict[str, Any]:
         return {

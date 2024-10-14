@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from .. import db
+from .assoc_table import department_head
 
 class User(db.Model):
     __tablename__ = 'tblusers'
@@ -34,6 +35,7 @@ class User(db.Model):
     clearings = db.relationship("Clearing", foreign_keys="Clearing.clearer_id", back_populates="clearer", lazy=True)
     comments = db.relationship("SWTDComment", foreign_keys="SWTDComment.author_id", back_populates="author", lazy=True)
     department = db.relationship("Department", foreign_keys=[department_id], back_populates="members", uselist=False, lazy=True)
+    headed_department = db.relationship("Department", secondary=department_head, back_populates="head", uselist=False, lazy=True)
     swtd_forms = db.relationship("SWTDForm", foreign_keys="SWTDForm.author_id", back_populates="author", lazy=True)
     received_notifications = db.relationship("Notification", foreign_keys="Notification.target_id", back_populates="target", lazy=True)
     triggered_notifications = db.relationship("Notification", foreign_keys="Notification.actor_id", back_populates="actor", lazy=True)
@@ -44,7 +46,7 @@ class User(db.Model):
         if not self.department:
             return False
 
-        return self.department.head_id == self.id
+        return self.department == self.headed_department
 
     @property
     def is_staff(self) -> bool:

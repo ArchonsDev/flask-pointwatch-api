@@ -32,7 +32,8 @@ class DepartmentService(object):
             "required_points",
             "level",
             "midyear_points",
-            "use_schoolyear"
+            "use_schoolyear",
+            "head"
         }
 
         for field in allowed_fields:
@@ -40,6 +41,9 @@ class DepartmentService(object):
 
             if value is None:
                 continue
+
+            if field == "head" and value.access_level < 1:
+                value.access_level = 1
 
             if field == "level":
                 value = value.strip().upper()

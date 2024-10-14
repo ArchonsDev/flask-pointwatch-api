@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, department_service, auth_service
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, MissingRequiredPropertyError, DepartmentNotFoundError, AuthenticationError
+from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, MissingRequiredPropertyError, DepartmentNotFoundError, AuthenticationError, UserNotFoundError, DuplicateValueError
 
 class DepartmentController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -119,7 +119,24 @@ class DepartmentController(Blueprint, BaseController):
             if not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
                 raise InsufficientPermissionsError("Could not update department data.")
 
-            department = self.department_service.update_department(department, **request.json)
+            params = {**request.json}
+
+            if "head_id" in params:
+                head_id = params.pop("head_id")
+
+                head = self.user_service.get_user(
+                    lambda q, u: q.filter_by(id=head_id).first()
+                )
+
+                if not head:
+                    raise UserNotFoundError()
+                
+                if head.is_head:
+                    raise DuplicateValueError("head")
+
+                params["head"] = head
+
+            department = self.department_service.update_department(department, **params)
 
             response = {
                 **department.to_dict(),
