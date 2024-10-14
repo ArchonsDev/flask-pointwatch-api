@@ -121,7 +121,7 @@ class DepartmentController(Blueprint, BaseController):
 
             params = {**request.json}
 
-            if "head_id" in params:
+            if "head_id" in params and not "remove_head" in params:
                 head_id = params.pop("head_id")
 
                 head = self.user_service.get_user(

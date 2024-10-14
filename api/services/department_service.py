@@ -3,8 +3,10 @@ from typing import Union, Any, Callable, Iterable
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import Query
+from sqlalchemy import delete
 
 from ..models.department import Department
+from ..models.assoc_table import department_head
 
 class DepartmentService(object):
     def __init__(self, db: SQLAlchemy) -> None:
@@ -33,14 +35,27 @@ class DepartmentService(object):
             "level",
             "midyear_points",
             "use_schoolyear",
-            "head"
+            "head",
+            "remove_head"
         }
 
         for field in allowed_fields:
             value = data.get(field)
+            print(field)
 
             if value is None:
                 continue
+
+            if field == "remove_head":
+                if department.head.access_level == 1:
+                    department.head.access_level = 0
+
+                self.db.session.execute(
+                    delete(department_head).where(
+                        (department_head.c.user_id == department.head.id) & (department_head.c.department_id == department.id)
+                    )
+                )
+                print("was executed")
 
             if field == "head" and value.access_level < 1:
                 value.access_level = 1

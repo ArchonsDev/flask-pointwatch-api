@@ -109,7 +109,7 @@ class UserController(Blueprint, BaseController):
             # Description: Returns a user matching the specified ID.
             # Required access level: 0 (All)-For querying own user data | 2 (Head) for querying other user data.
             # Params: None
-            is_owner = requester == userNone
+            is_owner = requester == user
 
             # Ensure that the requester has permission.
             if not is_owner and not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
@@ -150,7 +150,7 @@ class UserController(Blueprint, BaseController):
             # - access_level: int
             # - department_id: int
 
-            is_owner = requester = user
+            is_owner = requester == user
 
             # Ensure that the requester has the required permission.
             if not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
