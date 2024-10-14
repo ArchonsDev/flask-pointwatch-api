@@ -162,7 +162,7 @@ class UserController(Blueprint, BaseController):
             if 'point_balance' in data and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot update user point balance.")
 
-            if 'access_level' in data and not self.auth_service.has_permissions(requester, 'custon', data.get('access_level', 0) + 1):
+            if 'access_level' in data and not requester.is_staff and not self.auth_service.has_permissions(requester, 'custom', data.get('access_level', 0) + 1):
                 raise InsufficientPermissionsError("Cannot update user access level.")
             
             if 'department_id' in data:
@@ -205,9 +205,9 @@ class UserController(Blueprint, BaseController):
             # Required access level: 0 (All) - For own own account | 2 (Head) - For other users.
             # Params: None
             
-            is_owner = requeser == user
+            is_owner = requester == user
 
-            if not is_woner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot delete user.")
 
             self.user_service.delete_user(user)
@@ -236,7 +236,7 @@ class UserController(Blueprint, BaseController):
             is_head = requester == user.department.head if user.department else None
 
             # Ensure that the requester has permission.
-            if not is_woner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user points.")
             
             term_id = int(request.args.get('term_id', 0))
@@ -254,35 +254,9 @@ class UserController(Blueprint, BaseController):
             return self.build_response(points, 200)
 
     @jwt_required()
-    def get_user_swtds(self, user_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=email).first()
-        )
-        # Ensure the requester is authorized.
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
-        
-        user = self.user_service.get_user(
-            lambda q, u: q.filter_by(id=user_id).first()
-        )
-        # Ensure the target is registered.
-        if not user or (user and user.is_deleted):
-            raise UserNotFoundError()
-        
+    def get_user_swtds(self, user_id: int) -> Response:     
         if request.method == 'GET':
-            is_owner = requester == user
-            is_head = requester == user.department.head if user.department else None
-
-            if not is_owner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve user SWTDs")
-            
-            params = {
-                "is_deleted": False,
-                **request.args
-            }
-
-            return redirect(url_for('swtd.index',  author_id=1, **params))
+            return redirect(url_for('swtd.index', author_id=user_id, **request.args))
 
     @jwt_required()
     def get_user_department(self, user_id: int) -> Response:

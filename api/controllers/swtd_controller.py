@@ -39,15 +39,15 @@ class SWTDController(Blueprint, BaseController):
             raise AuthenticationError()
 
         if request.method == 'GET':
-            is_author = requester.id == params.get("author_id", 0)
-            # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
-            if not is_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
-
             params = {
                 "is_deleted": False,
                 **request.args
             }
+
+            is_author = requester.id == int(params.get("author_id", 0))
+            # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
+            if not is_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
 
             try:
                 if "start_date" in params:
@@ -67,7 +67,7 @@ class SWTDController(Blueprint, BaseController):
                     "author": form.author.to_dict(),
                     "comments": [{
                         **c.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, swtd.comments))],
+                    } for c in list(filter(lambda c: c.is_deleted == False, form.comments))],
                     "proof": [{
                         **p.to_dict()
                     } for p in form.proof],
@@ -76,7 +76,7 @@ class SWTDController(Blueprint, BaseController):
                         **form.validator.to_dict(),
                         "department": {
                             **form.validator.department.to_dict(),
-                            "head": form.validator.department.head.to_dict()
+                            "head": form.validator.department.head.to_dict() if form.validator.department.head else None
                         }
                     } if form.validator else None
                 } for form in swtd_forms]
@@ -156,7 +156,7 @@ class SWTDController(Blueprint, BaseController):
                         **swtd.validator.to_dict(),
                         "department": {
                             **swtd.validator.department.to_dict(),
-                            "head": swtd.validator.department.head.to_dict()
+                            "head": swtd.validator.department.head.to_dict() if swtd.validator.department.head else None
                         }
                     } if swtd.validator else None
                 }
@@ -198,7 +198,7 @@ class SWTDController(Blueprint, BaseController):
                         **swtd.validator.to_dict(),
                         "department": {
                             **swtd.validator.department.to_dict(),
-                            "head": swtd.validator.department.head.to_dict()
+                            "head": swtd.validator.department.head.to_dict() if swtd.validator.department.head else None
                         }
                     } if swtd.validator else None
                 }
@@ -264,7 +264,7 @@ class SWTDController(Blueprint, BaseController):
                         **swtd.validator.to_dict(),
                         "department": {
                             **swtd.validator.department.to_dict(),
-                            "head": swtd.validator.department.head.to_dict()
+                            "head": swtd.validator.department.head.to_dict() if swtd.validator.department.head else None
                         }
                     } if swtd.validator else None
                 }
