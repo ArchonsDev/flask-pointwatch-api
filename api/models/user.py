@@ -41,15 +41,18 @@ class User(db.Model):
 
     @property
     def is_head(self) -> bool:
-        return self.access_level >= 1
+        if not self.department:
+            return False
+
+        return self.department.head_id == self.id
 
     @property
     def is_staff(self) -> bool:
-        return self.access_level >= 2
+        return self.access_level == 2
 
     @property
     def is_superuser(self) -> bool:
-        return self.access_level >= 3
+        return self.access_level == 3
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -109,11 +109,10 @@ class UserController(Blueprint, BaseController):
             # Description: Returns a user matching the specified ID.
             # Required access level: 0 (All)-For querying own user data | 2 (Head) for querying other user data.
             # Params: None
-            is_owner = requester == user
-            is_head = requester == user.department.head if user.department else None
+            is_owner = requester == userNone
 
             # Ensure that the requester has permission.
-            if not is_owner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
             response = {
@@ -233,10 +232,9 @@ class UserController(Blueprint, BaseController):
             # Params:
             # - term_id : ID of Term.
             is_owner = requester == user
-            is_head = requester == user.department.head if user.department else None
 
             # Ensure that the requester has permission.
-            if not is_owner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user points.")
             
             term_id = int(request.args.get('term_id', 0))
@@ -296,26 +294,21 @@ class UserController(Blueprint, BaseController):
         
         if request.method == 'GET':
             is_owner = requester == user
-            is_head = requester == user.department.head if user.department else None
 
-            if not is_owner and not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot get user term data.")
     
             term_summary = self.user_service.get_term_summary(user, term)
             return self.build_response(term_summary, 200)
         if request.method == 'POST':
-            is_head = requester ==  user.department.head if user.department else None
-
-            if not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot grant user clearance.")
 
             self.user_service.grant_clearance(requester, user, term)
 
             return redirect(url_for('user.process_user', user_id=user.id))
         if request.method == 'DELETE':
-            is_head = requester ==  user.department.head if user.department else None
-
-            if not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot revoke user clearance.")
 
             self.user_service.revoke_clearance(user, term)

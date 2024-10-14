@@ -103,7 +103,6 @@ class DepartmentController(Blueprint, BaseController):
 
         if request.method == 'GET':
             is_member = requester in department.members
-            is_head = requester == department.head
             use_basic_view = request.args.get("basic_view", '') in ("true", "1")
 
             if not is_member and not use_basic_view and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
@@ -111,15 +110,13 @@ class DepartmentController(Blueprint, BaseController):
 
             response = {
                 **department.to_dict(),
-                "members": [u.to_dict() for u in department.members] if is_head and not use_basic_view else None,
+                "members": [u.to_dict() for u in department.members] if requester.is_head and not use_basic_view else None,
                 "head": department.head.to_dict() if department.head and not use_basic_view else None
             }
             
             return self.build_response(response, 200)
         if request.method == 'PUT':
-            is_head = requester == department.head
-
-            if not is_head and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            if not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
                 raise InsufficientPermissionsError("Could not update department data.")
 
             department = self.department_service.update_department(department, **request.json)
