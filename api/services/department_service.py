@@ -41,7 +41,6 @@ class DepartmentService(object):
 
         for field in allowed_fields:
             value = data.get(field)
-            print(field)
 
             if value is None:
                 continue
