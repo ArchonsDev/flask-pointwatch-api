@@ -114,7 +114,7 @@ class UserController(Blueprint, BaseController):
             is_head_of_target = requester.department is not None and requester.department == user.department and requester == user.department.head
 
             # Ensure that the requester has permission.
-            if not is_head_of_target and not not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_head_of_target and not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
             response = {
