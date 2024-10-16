@@ -99,7 +99,7 @@ class UserService:
         points.required_points = -1
 
         if user.department:
-            if term.type == "MIDYEAR":
+            if term.type == "MIDYEAR/SUMMER":
                 points.required_points = user.department.midyear_points
             else:
                 points.required_points = user.department.required_points
