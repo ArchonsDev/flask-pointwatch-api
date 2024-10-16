@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service, swtd_comment_service, term_service
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError, TermNotFoundError, AuthenticationError, ProofNotFoundError
+from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError, TermNotFoundError, AuthenticationError, ProofNotFoundError, UserNotFoundError
 
 class SWTDController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -58,7 +58,7 @@ class SWTDController(Blueprint, BaseController):
                 raise InvalidDateTimeFormat()
 
             swtd_forms = self.swtd_service.get_swtd(
-                lambda q, s: q.filter_by(is_deleted=False, **params)
+                lambda q, s: q.filter_by(**params)
             )
 
             response = {

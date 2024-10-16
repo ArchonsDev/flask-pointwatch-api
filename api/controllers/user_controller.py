@@ -58,6 +58,7 @@ class UserController(Blueprint, BaseController):
                 "is_deleted": False,
                 **request.args
             }
+
             users = self.user_service.get_user(
                 lambda q, u: q.filter_by(**params).all()
             )

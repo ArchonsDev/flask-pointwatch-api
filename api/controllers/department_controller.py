@@ -34,7 +34,10 @@ class DepartmentController(Blueprint, BaseController):
             raise AuthenticationError()
 
         if request.method == 'GET':
-            args = {**request.args}
+            args = {
+                "is_deleted": False,
+                **request.args
+            }
 
             use_basic_view = args.pop("basic_view", '').lower() in ("true", "1")
 
@@ -42,7 +45,7 @@ class DepartmentController(Blueprint, BaseController):
                 raise InsufficientPermissionsError("Cannot retrieve department list.")
 
             departments = self.department_service.get_department(
-                lambda q, d: q.filter_by(is_deleted=False, **args).all()
+                lambda q, d: q.filter_by(**args).all()
             )
 
             response = {
