@@ -36,7 +36,8 @@ class DepartmentService(object):
             "midyear_points",
             "use_schoolyear",
             "head",
-            "remove_head"
+            "remove_head",
+            "is_deleted"
         }
 
         for field in allowed_fields:

@@ -52,7 +52,8 @@ class SWTDService:
             "term_id",
             "validation_status",
             "validator_id",
-            "date_validated"
+            "date_validated",
+            "is_deleted"
         ]
 
         for field in allowed_fields:
