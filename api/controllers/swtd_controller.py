@@ -221,21 +221,17 @@ class SWTDController(Blueprint, BaseController):
                 raise InvalidDateTimeFormat()
 
             if "validation_status" in data:
-                if data.get("validation_status") == "PENDING":
-                    data["validator_id"] = None
-                    data["date_validated"] = None
-                else:
-                    if not "validator_id" in data:
-                        raise MissingRequiredPropertyError("validator_id")
+                if not "validator_id" in data:
+                    raise MissingRequiredPropertyError("validator_id")
 
-                    validator = self.user_service.get_user(
-                        lambda q, u: q.filter_by(id=data.get("validator_id"), is_deleted=False).first()
-                    )
+                validator = self.user_service.get_user(
+                    lambda q, u: q.filter_by(id=data.get("validator_id"), is_deleted=False).first()
+                )
 
-                    if not validator:
-                        raise UserNotFoundError()
+                if not validator:
+                    raise UserNotFoundError()
 
-                    data["date_validated"] = datetime.now()
+                data["date_validated"] = datetime.now()
 
             if "term_id" in data:
                 term = self.term_service.get_term(
@@ -309,7 +305,12 @@ class SWTDController(Blueprint, BaseController):
                 lambda q, c: q.filter_by(**params).all()
             )
 
-            return self.build_response({"data": [comment.to_dict() for comment in comments]}, 200)
+            return self.build_response({
+                "data": [{
+                    **comment.to_dict(),
+                    "author": comment.author.to_dict()
+                } for comment in comments]
+            }, 200)
         if request.method == 'POST':
             is_author = requester == swtd.author
 
@@ -326,7 +327,12 @@ class SWTDController(Blueprint, BaseController):
             self.check_fields(data, required_fields)
             
             comment = self.swtd_comment_service.create_comment(**data)
-            return self.build_response({"data": comment.to_dict()}, 200)
+            return self.build_response({
+                "data": {
+                    **comment.to_dict(),
+                    "author": comment.author.to_dict()
+                }
+            }, 200)
     
     @jwt_required()
     def handle_comment(self, form_id: int, comment_id: int) -> Response:
@@ -350,7 +356,12 @@ class SWTDController(Blueprint, BaseController):
             if not is_author and not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve SWTD form comment.")
             
-            return self.build_response({"data": comment.to_dict()}, 200)
+            return self.build_response({
+                "data": {
+                    **comment.to_dict(),
+                    "author": comment.author.to_dict()
+                }
+            }, 200)
         if request.method == 'PUT':
             is_author = requester == comment.author
 
@@ -360,7 +371,7 @@ class SWTDController(Blueprint, BaseController):
             data = {**request.json}
 
             self.swtd_comment_service.update_comment(comment, **data)
-            return redirect(url_for('swtd.process_swtd', form_id=swtd.id))
+            return redirect(url_for('swtd.process_swtd', form_id=swtd.id), code=303)
         if request.method == 'DELETE':
             is_author = requester == comment.author
 
@@ -412,8 +423,31 @@ class SWTDController(Blueprint, BaseController):
 
             for file in files:
                 self.ft_service.save(requester.id, swtd.id, file)
+
+            self.swtd_service.update_swtd(swtd, validation_status="PENDING")
             
-            return redirect(url_for('swtd.process_swtd', form_id=swtd.id, validation_status="PENDING"))
+            response = {
+                "data": {
+                    **swtd.to_dict(),
+                    "author": swtd.author.to_dict(),
+                    "comments": [{
+                        **c.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, swtd.comments))],
+                    "proof": [{
+                        **p.to_dict()
+                    } for p in swtd.proof],
+                    "term": swtd.term.to_dict(),
+                    "validator": {
+                        **swtd.validator.to_dict(),
+                        "department": {
+                            **swtd.validator.department.to_dict(),
+                            "head": swtd.validator.department.head.to_dict() if swtd.validator.department.head else None
+                        }
+                    } if swtd.validator else None
+                }
+            }
+
+            return self.build_response(response, 200)
         if request.method == "DELETE":
             is_author = requester == swtd.author
 
@@ -432,7 +466,9 @@ class SWTDController(Blueprint, BaseController):
                 raise InsufficientPermissionsError("Cannot delete proof of other SWTDs")
 
             self.ft_service.delete_proof(proof)
-            return redirect(url_for('swtd.process_swtd', form_id=swtd.id, validation_status="PENDING"))
+            self.swtd_service.update_swtd(swtd, validation_status="PENDING")
+            
+            return redirect(url_for('swtd.process_swtd', form_id=swtd.id), code=303)
 
 def setup(app: Flask) -> None:
     app.register_blueprint(SWTDController('swtd', __name__, url_prefix='/swtds'))

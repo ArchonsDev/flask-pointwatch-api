@@ -105,16 +105,33 @@ class FTService:
         if not os.path.exists(user_swtd_fp):
             os.mkdir(user_swtd_fp)
 
-        fp = os.path.join(user_swtd_fp, file.filename)
-
         proof = self.create_proof(
-            path=fp,
+            path=os.path.join(user_swtd_fp, file.filename),
             filename=file.filename,
             content_type=file.content_type,
             swtd_form_id=swtd_id
         )
 
+        user_swtd_proof_fp = os.path.join(user_swtd_fp, str(proof.id))
+
+        if not os.path.exists(user_swtd_proof_fp):
+            os.mkdir(user_swtd_proof_fp)
+
+        fp = os.path.join(user_swtd_proof_fp, file.filename)
+
+        proof = self.update_proof(proof, path=fp)
+
         file.save(fp)
+        return proof
+
+    def update_proof(self, proof: Proof, **data: dict[str, Any]) -> Proof:
+        for key, value in data.items():
+            if not hasattr(Proof, key):
+                continue
+
+            setattr(proof, key, value)
+
+        self.db.session.commit()
         return proof
 
     def delete_proof(self, proof: Proof):

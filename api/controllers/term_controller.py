@@ -147,9 +147,9 @@ class TermController(Blueprint, BaseController):
         author_id = int(request.args.get('author_id')) if 'author_id' in request.args else None
         
         if not author_id:
-            return redirect(url_for('swtd.index', term_id=term.id))
+            return redirect(url_for('swtd.index', term_id=term.id), code=303)
         else:
-            return redirect(url_for('swtd.index', term_id=term.id, author_id=author_id))
+            return redirect(url_for('swtd.index', term_id=term.id, author_id=author_id), code=303)
 
 def setup(app: Flask) -> None:
     app.register_blueprint(TermController('term', __name__, url_prefix='/terms'))

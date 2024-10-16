@@ -58,6 +58,13 @@ class SWTDService:
         for field in allowed_fields:
             value = data.get(field)
 
+            if value == None:
+                continue
+
+            if field == "validation_status" and value == "PENDING":
+                swtd_form.date_validated = None
+                swtd_form.validator_id = None
+
             setattr(swtd_form, field, value)
 
         swtd_form.date_modified = datetime.now()

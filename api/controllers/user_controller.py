@@ -254,7 +254,7 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def get_user_swtds(self, user_id: int) -> Response:     
         if request.method == 'GET':
-            return redirect(url_for('swtd.index', author_id=user_id, **request.args))
+            return redirect(url_for('swtd.index', author_id=user_id, **request.args), code=303)
 
     @jwt_required()
     def get_user_department(self, user_id: int) -> Response:
@@ -268,7 +268,7 @@ class UserController(Blueprint, BaseController):
         if not user.department:
             raise DepartmentNotFoundError()
         
-        return redirect(url_for('department.handle_department', department_id=user.department.id))
+        return redirect(url_for('department.handle_department', department_id=user.department.id), code=303)
 
     @jwt_required()
     def handle_clearing(self, user_id: int, term_id: int) -> Response:
@@ -306,14 +306,14 @@ class UserController(Blueprint, BaseController):
 
             self.user_service.grant_clearance(requester, user, term)
 
-            return redirect(url_for('user.process_user', user_id=user.id))
+            return redirect(url_for('user.process_user', user_id=user.id), code=303)
         if request.method == 'DELETE':
             if not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot revoke user clearance.")
 
             self.user_service.revoke_clearance(user, term)
             
-            return redirect(url_for('user.process_user', user_id=user.id))
+            return redirect(url_for('user.process_user', user_id=user.id), code=303)
         
     @jwt_required()
     def export_swtd_data(self, user_id: int) -> Response:
