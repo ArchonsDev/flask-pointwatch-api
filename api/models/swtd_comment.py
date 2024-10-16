@@ -13,7 +13,7 @@ class SWTDComment(db.Model):
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
     # Comment Data
-    message = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, nullable=False)
 
     # Foreign Keys
     author_id = db.Column(db.Integer, db.ForeignKey('tblusers.id'), nullable=False)
