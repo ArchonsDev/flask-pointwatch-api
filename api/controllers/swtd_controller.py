@@ -218,7 +218,10 @@ class SWTDController(Blueprint, BaseController):
             if not is_head_of_author and not is_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot update SWTD form data.")
             
-            data = {**request.json}
+            data = {
+                "validation_status": "PENDING",
+                **request.json
+            }
 
             try:
                 if "start_date" in data:
@@ -228,7 +231,7 @@ class SWTDController(Blueprint, BaseController):
             except Exception:
                 raise InvalidDateTimeFormat()
 
-            if "validation_status" in data:
+            if "validation_status" in data and data.get("validation_status") != "PENDING":
                 if not "validator_id" in data:
                     raise MissingRequiredPropertyError("validator_id")
 
