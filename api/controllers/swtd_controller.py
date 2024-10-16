@@ -58,7 +58,7 @@ class SWTDController(Blueprint, BaseController):
                 raise InvalidDateTimeFormat()
 
             swtd_forms = self.swtd_service.get_swtd(
-                lambda q, s: q.filter_by(**params)
+                lambda q, s: q.filter_by(is_deleted=False, **params)
             )
 
             response = {

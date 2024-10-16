@@ -46,7 +46,7 @@ class TermController(Blueprint, BaseController):
                 raise InvalidDateTimeFormat()
 
             terms = self.term_service.get_term(
-                lambda q, t: q.filter_by(**params, is_deleted=False).all()
+                lambda q, t: q.filter_by(is_deleted=False, **params).all()
             )
 
             return self.build_response({"terms": [term.to_dict() for term in terms]}, 200)

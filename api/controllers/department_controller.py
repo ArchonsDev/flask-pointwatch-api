@@ -42,7 +42,7 @@ class DepartmentController(Blueprint, BaseController):
                 raise InsufficientPermissionsError("Cannot retrieve department list.")
 
             departments = self.department_service.get_department(
-                lambda q, d: q.filter_by(**args, is_deleted=False).all()
+                lambda q, d: q.filter_by(is_deleted=False, **args).all()
             )
 
             response = {
