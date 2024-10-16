@@ -217,12 +217,16 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def get_points(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user('email', email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         # Ensure that the requester exists.
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = self.user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         # Ensure that the target exists.
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
@@ -234,9 +238,10 @@ class UserController(Blueprint, BaseController):
             # Params:
             # - term_id : ID of Term.
             is_owner = requester == user
+            is_head_of_target = requester.department is not None and requester.department == user.department and requester == user.department.head
 
             # Ensure that the requester has permission.
-            if not is_owner and not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not is_head_of_target and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user points.")
             
             term_id = int(request.args.get('term_id', 0))
