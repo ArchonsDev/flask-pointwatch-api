@@ -45,7 +45,7 @@ class SWTDController(Blueprint, BaseController):
             }
 
             author = self.user_service.get_user(
-                lambda q, u: q.filter_by(id=int(params.get("author_id", 0), is_deleted=False)).first()
+                lambda q, u: q.filter_by(id=int(params.get("author_id", 0)), is_deleted=False).first()
             )
 
             is_author = requester == author
