@@ -343,7 +343,7 @@ class UserController(Blueprint, BaseController):
             if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot export user SWTD data.")
 
-            content = ft_service.dump_user_swtd_data(requester, user)
+            content = ft_service.export_for_employee(requester, user)
 
             headers = {
                 'Content-Disposition': f'attachment; filename="{user.employee_id}_SWTDReport.pdf"'
