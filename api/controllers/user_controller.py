@@ -249,7 +249,9 @@ class UserController(Blueprint, BaseController):
             if not term_id:
                 raise MissingRequiredPropertyError('term_id')
             
-            term = term_service.get_term(term_id)
+            term = term_service.get_term(
+                lambda q, t: q.filter_by(id=term_id).first()
+            )
 
             if not term or (term and term.is_deleted):
                 raise TermNotFoundError()
