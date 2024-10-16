@@ -111,9 +111,10 @@ class UserController(Blueprint, BaseController):
             # Required access level: 0 (All)-For querying own user data | 2 (Head) for querying other user data.
             # Params: None
             is_owner = requester == user
+            is_head_of_target = requester.department is not None and requester.department == user.department and requester == user.department.head
 
             # Ensure that the requester has permission.
-            if not is_owner and not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_head_of_target and not not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
             response = {
