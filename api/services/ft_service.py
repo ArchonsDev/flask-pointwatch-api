@@ -270,30 +270,9 @@ class FTService:
         total_pending_swtds = 0
         total_swtds_for_revisions = 0
 
-        pdf.add_text("Department Members")
         for member in department.members:
             if member == department.head or member.is_deleted:
                 continue
-
-            swtds = list(filter(lambda swtd_form: swtd_form.term == term, member.swtd_forms))
-            pending_swtds = len(list(filter(lambda swtd_form: swtd_form.validation_status == "PENDING", swtds)))
-            rejected_swtds = len(list(filter(lambda swtd_form: swtd_form.validation_status == "REJECTED", swtds)))
-            is_cleared = False
-
-            for clearance in member.clearances:
-                if clearance.is_deleted:
-                    continue
-
-                if clearance.term == term:
-                    is_cleared = True
-                    break
-
-            status = "CLEARED" if is_cleared else "NOT CLEARED"
-            points = self.user_service.get_point_summary(member, term)
-
-            pdf.add_text(f"     {member.employee_id} | {member.firstname} {member.lastname}")
-            pdf.add_text(f"     Pending SWTDs: {pending_swtds} | SWTDs For Revision: {rejected_swtds} | Points: {points.valid_points} | Status: {status}")
-            pdf.add_text("")
 
             for swtd_form in member.swtd_forms:
                 if swtd_form.term != term or swtd_form.is_deleted:
@@ -323,6 +302,32 @@ class FTService:
         pdf.add_text("Department SWTD Breakdown")
         pdf.add_text(f"     Total Pending SWTDs: {total_pending_swtds}")
         pdf.add_text(f"     Total SWTDs For Revision: {total_swtds_for_revisions}")
+        pdf.add_text("")
+
+        pdf.add_text("Department Members")
+        for member in department.members:
+            if member == department.head or member.is_deleted:
+                continue
+
+            swtds = list(filter(lambda swtd_form: swtd_form.term == term, member.swtd_forms))
+            pending_swtds = len(list(filter(lambda swtd_form: swtd_form.validation_status == "PENDING", swtds)))
+            rejected_swtds = len(list(filter(lambda swtd_form: swtd_form.validation_status == "REJECTED", swtds)))
+            is_cleared = False
+
+            for clearance in member.clearances:
+                if clearance.is_deleted:
+                    continue
+
+                if clearance.term == term:
+                    is_cleared = True
+                    break
+
+            status = "CLEARED" if is_cleared else "NOT CLEARED"
+            points = self.user_service.get_point_summary(member, term)
+
+            pdf.add_text(f"     {member.employee_id} | {member.firstname} {member.lastname}")
+            pdf.add_text(f"     Pending SWTDs: {pending_swtds} | SWTDs For Revision: {rejected_swtds} | Points: {points.valid_points} | Status: {status}")
+            pdf.add_text("")
 
         return pdf.get_pdf()
 
@@ -352,14 +357,31 @@ class FTService:
         pdf.add_text(f"     Head: {department.head.firstname} {department.head.lastname}")
         pdf.add_text("")
 
-        total_employees = len(list(filter(lambda u: u.is_deleted == False, department.members))) - 1
+        total_employees = len(list(filter(lambda u: u.is_deleted == False, department.members)))
         cleared_employees  = 0
-        total_pending_swtds = 0
-        total_swtds_for_revisions = 0
+
+        for member in department.members:
+            if member.is_deleted:
+                continue
+
+            for clearing in member.clearances:
+                if term != clearing.term or clearing.is_deleted:
+                    continue
+
+                cleared_employees += 1
+        
+        non_cleared_employees = total_employees - cleared_employees
+        percent_cleared = (cleared_employees / total_employees) * 100
+
+        pdf.add_text("Department Summary")
+        pdf.add_text(f"     % of Employees Cleared: {percent_cleared}")
+        pdf.add_text(f"     No of cleared Employees: {cleared_employees}")
+        pdf.add_text(f"     No of Non-cleared Employees: {non_cleared_employees}")
+        pdf.add_text("")
 
         pdf.add_text("Department Members")
         for member in department.members:
-            if member == department.head or member.is_deleted:
+            if member.is_deleted:
                 continue
 
             is_cleared = False
@@ -378,34 +400,11 @@ class FTService:
             pdf.add_text(f"     Points: {points.valid_points} | Status: {status}")
             pdf.add_text("")
 
-            for swtd_form in member.swtd_forms:
-                if swtd_form.term != term or swtd_form.is_deleted:
-                    continue
-
-                if swtd_form.validation_status == "PENDING":
-                    total_pending_swtds += 1
-                
-                if swtd_form.validation_status == "REJECTED":
-                    total_swtds_for_revisions += 1
-
             for clearing in member.clearances:
                 if term != clearing.term or clearing.is_deleted:
                     continue
 
                 cleared_employees += 1
-        
-        non_cleared_employees = total_employees - cleared_employees
-        percent_cleared = (cleared_employees / total_employees) * 100
-
-        pdf.add_text("Department Summary")
-        pdf.add_text(f"     % of Employees Cleared: {percent_cleared}")
-        pdf.add_text(f"     No of cleared Employees: {cleared_employees}")
-        pdf.add_text(f"     No of Non-cleared Employees: {non_cleared_employees}")
-        pdf.add_text("")
-
-        pdf.add_text("Department SWTD Breakdown")
-        pdf.add_text(f"     Total Pending SWTDs: {total_pending_swtds}")
-        pdf.add_text(f"     Total SWTDs For Revision: {total_swtds_for_revisions}")
 
         return pdf.get_pdf()
 
