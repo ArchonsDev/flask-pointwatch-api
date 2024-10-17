@@ -1,12 +1,10 @@
-from typing import Union, Iterable, Callable, Any
+from typing import Iterable, Callable, Any
 from datetime import datetime
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import Query
 
-from ..models.swtd_form import SWTDForm
 from ..models.swtd_comment import SWTDComment
-from ..models.user import User
 
 class SWTDCommentService:
     def __init__(self, db: SQLAlchemy) -> None:

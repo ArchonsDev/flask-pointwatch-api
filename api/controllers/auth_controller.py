@@ -1,10 +1,7 @@
 from typing import Any
-import random
-import string
-from flask import Blueprint, request, url_for, redirect, Response, Flask
+from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
-import redirects
 from ..services import auth_service, user_service, jwt_service, password_encoder_service, mail_service
 from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
 from .base_controller import BaseController

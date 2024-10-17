@@ -1,12 +1,11 @@
 from typing import Any
-from datetime import datetime
 
 from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, department_service, auth_service
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, MissingRequiredPropertyError, DepartmentNotFoundError, AuthenticationError, UserNotFoundError, DuplicateValueError
+from ..exceptions import InsufficientPermissionsError, DepartmentNotFoundError, AuthenticationError, UserNotFoundError, DuplicateValueError
 
 class DepartmentController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:

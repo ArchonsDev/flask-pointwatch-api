@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Union, Any, Callable, Iterable
+from typing import Any, Callable, Iterable
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import Query

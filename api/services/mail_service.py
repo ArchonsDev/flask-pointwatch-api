@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from flask import current_app
 from flask_mail import Message, Mail
@@ -24,3 +25,33 @@ class MailService:
 
         mail_body = mail_template.format(reset_link=os.getenv("APP_URL"), username=firstname, token=token)
         self.send_mail('Account Recovery | PointWatch', [email,], mail_body)
+
+    def send_swtd_validation_mail(self, email: str, **data: dict[str, Any]) -> None:
+        with current_app.open_resource('templates/validation_update_template.txt', 'r') as f:
+            mail_template = f.read()
+
+        mail_body = mail_template.format(
+            firstname=data.get("firstname"),
+            swtd_id=data.get("swtd_id"),
+            title=data.get("title"),
+            date_created=data.get("date_created"),
+            status=data.get("status"),
+            validation_date=data.get("validation_date"),
+            validator_name=data.get("validator_name"),
+            app_url=os.getenv("APP_URL")
+        )
+
+        self.send_mail('SWTD Validation Update | PointWatch', [email,], mail_body)
+
+    def send_clearance_update_mail(self, email: str, *data: dict[str, Any]) -> None:
+        with current_app.open_resource('templates/clearance_granted_template.txt', 'r') as f:
+            mail_template = f.read()
+
+        mail_body = mail_template.format(
+            firtname=data.get("firstname"),
+            term_name=data.get("term_name"),
+            date_created=data.get("date_created"),
+            clearer_name=data.get("clearer_name")
+        )
+
+        self.send_mail('SWTD Validation Update | PointWatch', [email,], mail_body)

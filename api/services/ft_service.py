@@ -12,7 +12,6 @@ import io
 
 from ..models.proof import Proof
 from ..models.user import User
-from ..services.term_service import TermService
 
 class PDFComposer:
     def __init__(self):

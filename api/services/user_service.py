@@ -1,17 +1,17 @@
 from typing import Union, Any, Callable, Iterable
 from datetime import datetime
-import json
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import Query
 
 from ..models.point_summary import PointSummary
-from ..models.swtd_form import SWTDForm
 from ..models.term import Term
 from ..models.user import User
+
 from ..services.password_encoder_service import PasswordEncoderService
 from ..services.clearing_service import ClearingService
-from ..exceptions import InvalidParameterError, InsufficientSWTDPointsError, TermClearingError
+
+from ..exceptions import InsufficientSWTDPointsError, TermClearingError
 
 class UserService:
     def __init__(self, db: SQLAlchemy, password_encoder_service: PasswordEncoderService, clearing_service: ClearingService) -> None:

@@ -1,15 +1,11 @@
 from typing import Any, Union, Callable, Iterable
 from datetime import datetime
-import json
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import Query
 
 from ..models.swtd_form import SWTDForm
-from ..models.term import Term
-from ..models.proof import Proof
 from ..services.term_service import TermService
-from ..exceptions import InvalidParameterError, TermNotFoundError
 
 class SWTDService:
     def __init__(self, db: SQLAlchemy, term_service: TermService) -> None:

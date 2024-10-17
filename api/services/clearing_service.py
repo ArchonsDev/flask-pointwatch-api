@@ -1,4 +1,4 @@
-from typing import Union, Any, Callable, Iterable
+from typing import Any, Callable, Iterable
 from datetime import datetime
 
 from flask_sqlalchemy import SQLAlchemy

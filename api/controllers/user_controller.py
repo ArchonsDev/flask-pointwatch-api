@@ -1,12 +1,11 @@
 from typing import Any
-from datetime import datetime
 
 from flask import Blueprint, request, Response, Flask, redirect, url_for
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, auth_service, term_service, ft_service, department_service
-from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError, DepartmentNotFoundError
+from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, TermNotFoundError, MissingRequiredPropertyError, DepartmentNotFoundError
 
 class UserController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:

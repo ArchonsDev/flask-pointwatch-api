@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, term_service, auth_service
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, MissingRequiredPropertyError, TermNotFoundError, AuthenticationError
+from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, TermNotFoundError, AuthenticationError
 
 class TermController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:

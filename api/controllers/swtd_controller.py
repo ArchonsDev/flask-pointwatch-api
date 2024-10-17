@@ -1,6 +1,5 @@
 from typing import Any
 from datetime import datetime
-import os
 
 from flask import Blueprint, request, Response, Flask, redirect, url_for
 from flask_jwt_extended import jwt_required
