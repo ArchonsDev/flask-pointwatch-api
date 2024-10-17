@@ -15,7 +15,10 @@ class MailService:
         msg = Message(subject, sender='mail.wildpark@gmail.com', recipients=recipients)
         msg.body = body
 
-        self.mail.send(msg)
+        try:
+            self.mail.send(msg)
+        except Exception:
+            print("Failed to send mail.")
 
     def send_recovery_mail(self, email: str, firstname: str) -> None:
         token = self.jwt_service.generate_token(email)
