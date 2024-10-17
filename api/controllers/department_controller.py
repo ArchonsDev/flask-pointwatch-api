@@ -102,27 +102,7 @@ class DepartmentController(Blueprint, BaseController):
             )
 
             response = {
-                **department.to_dict(),
-                "members": [{
-                    **u.to_dict(),
-                    "clearances": [{
-                        **c.to_dict(),
-                        "user": c.user.to_dict(),
-                        "term": c.term.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearances))],
-                    "clearings": [{
-                        **c.to_dict(),
-                        "user": c.user.to_dict(),
-                        "term": c.user.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearings))],
-                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, u.comments))],
-                    "department": u.department.to_dict() if u.department and u.department.is_deleted == False else None,
-                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.received_notifications))],
-                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.swtd_forms))],
-                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.triggered_notifications))],
-                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.validated_swtd_forms))]
-                } for u in department.members],
-                "head": department.head.to_dict() if department.head else None
+                **department.to_dict()
             }
 
             return self.build_response(response, 200)
@@ -218,8 +198,8 @@ class DepartmentController(Blueprint, BaseController):
                     "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.swtd_forms))],
                     "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.triggered_notifications))],
                     "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.validated_swtd_forms))]
-                } for u in department.members] if requester.is_head and not use_basic_view else None,
-                "head": department.head.to_dict() if department.head and not use_basic_view else None
+                } for u in department.members] if requester.is_head else None,
+                "head": department.head.to_dict() if department.head else None
             }
 
             return self.build_response(response, 200)
