@@ -156,7 +156,7 @@ class FTService:
         terms = []
         for id in term_ids:
             terms.append(self.term_service.get_term(
-                lambda q, t: q.filter_by(id=id).first()
+                lambda q, t: q.filter_by(id=id, is_deleted=False).first()
             ))
 
         term_summaries = [{
@@ -192,6 +192,9 @@ class FTService:
 
             is_cleared = False
             for clearance in user.clearances:
+                if clearance.is_deleted:
+                    continue
+
                 is_cleared = clearance.term == term
 
             pdf.add_text(f"     Clearance Status: {'CLEARED' if is_cleared else 'NOT CLEARED'}")
@@ -216,6 +219,9 @@ class FTService:
             }
 
             for swtd_form in swtd_forms:
+                if swtd_form.is_deleted:
+                    continue
+
                 category = swtd_form.category
                 if category not in categories:
                     categories[category] = 1
@@ -259,17 +265,17 @@ class FTService:
         pdf.add_text(f"     Head: {department.head.firstname} {department.head.lastname}")
         pdf.add_text("")
 
-        total_employees = len(department.members) - 1
+        total_employees = len(list(filter(lambda u: u.is_deleted == False, department.members))) - 1
         cleared_employees  = 0
         total_pending_swtds = 0
         total_swtds_for_revisions = 0
 
         for member in department.members:
-            if member == department.head:
+            if member == department.head or member.is_deleted:
                 continue
 
             for swtd_form in member.swtd_forms:
-                if swtd_form.term != term:
+                if swtd_form.term != term or swtd_form.is_deleted:
                     continue
 
                 if swtd_form.validation_status == "PENDING":
@@ -279,7 +285,7 @@ class FTService:
                     total_swtds_for_revisions += 1
 
             for clearing in member.clearances:
-                if term != clearing.term:
+                if term != clearing.term or clearing.is_deleted:
                     continue
 
                 cleared_employees += 1
@@ -296,11 +302,6 @@ class FTService:
         pdf.add_text("Department SWTD Breakdown")
         pdf.add_text(f"     Total Pending SWTDs: {total_pending_swtds}")
         pdf.add_text(f"     Total SWTDs For Revision: {total_swtds_for_revisions}")
-
-        print(total_employees)
-        print(cleared_employees)
-        print(total_pending_swtds)
-        print(total_swtds_for_revisions)
 
         return pdf.get_pdf()
 
