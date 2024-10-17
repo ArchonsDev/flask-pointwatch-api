@@ -76,7 +76,7 @@ class NotificationService:
 
         self.mail_service.send_clearance_update_mail(
             target.email,
-            firtname=target.firstname,
+            firstname=target.firstname,
             term_name=term.name,
             date_created=clearing.date_created,
             clearer_name=f"{actor.firstname} {actor.lastname}"

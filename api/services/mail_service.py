@@ -34,24 +34,24 @@ class MailService:
             firstname=data.get("firstname"),
             swtd_id=data.get("swtd_id"),
             title=data.get("title"),
-            date_created=data.get("date_created"),
+            date_created=data.get("date_created").strftime("%d %B %Y %I:%M %p"),
             status=data.get("status"),
-            validation_date=data.get("validation_date"),
+            validation_date=data.get("validation_date").strftime("%d %B %Y %I:%M %p"),
             validator_name=data.get("validator_name"),
             app_url=os.getenv("APP_URL")
         )
 
         self.send_mail('SWTD Validation Update | PointWatch', [email,], mail_body)
 
-    def send_clearance_update_mail(self, email: str, *data: dict[str, Any]) -> None:
-        with current_app.open_resource('templates/clearance_granted_template.txt', 'r') as f:
+    def send_clearance_update_mail(self, email: str, **data: dict[str, Any]) -> None:
+        with current_app.open_resource('templates/clearing_granted_template.txt', 'r') as f:
             mail_template = f.read()
 
         mail_body = mail_template.format(
-            firtname=data.get("firstname"),
+            firstname=data.get("firstname"),
             term_name=data.get("term_name"),
-            date_created=data.get("date_created"),
+            date_created=data.get("date_created").strftime("%d %B %Y %I:%M %p"),
             clearer_name=data.get("clearer_name")
         )
 
-        self.send_mail('SWTD Validation Update | PointWatch', [email,], mail_body)
+        self.send_mail('Term Clearance Update | PointWatch', [email,], mail_body)
