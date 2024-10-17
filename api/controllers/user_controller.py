@@ -332,13 +332,15 @@ class UserController(Blueprint, BaseController):
             raise AuthenticationError()
         
         user = self.user_service.get_user(
-            lambda q, u: q.filter_by(id=user_id).first()
+            lambda q, u: q.filter_by(id=user_id, is_deleted=False).first()
         )
-        if not user or (user and user.is_deleted):
+        if not user:
             raise UserNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
+            is_owner = requester == user
+
+            if not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot export user SWTD data.")
 
             content = self.ft_service.export_for_employee(requester, user)

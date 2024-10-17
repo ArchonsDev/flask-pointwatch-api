@@ -150,8 +150,8 @@ class FTService:
 
         term_ids = []
         for swtd_form in user.swtd_forms:
-            if swtd_form.id not in term_ids:
-                term_ids.append(swtd_form.id)
+            if swtd_form.term_id not in term_ids:
+                term_ids.append(swtd_form.term_id)
 
         terms = []
         for id in term_ids:
