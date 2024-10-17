@@ -9,23 +9,14 @@ class AuthService:
         self.password_encoder_service = password_encoder_service
         self.jwt_service = jwt_service
 
-    def has_permissions(self, user: User, minimum_auth: str=None) -> bool:
+    def has_permissions(self, user: User, minimum_auth: str, min_access_level: int=0) -> bool:
         auth_levels = {
-            'staff': 1, 
-            'admin': 2,
-            'superuser': 3
+            "head": 1,
+            "staff": 2,
+            "superuser": 3
         }
 
-        min_auth_level = auth_levels.get(minimum_auth, 0)
-        user_auth_level = 0
-        if user.is_staff:
-            user_auth_level = 1
-        if user.is_admin:
-            user_auth_level = 2
-        if user.is_superuser:
-            user_auth_level = 3
-
-        return user_auth_level >= min_auth_level
+        return user.access_level >= auth_levels.get(minimum_auth, min_access_level)
 
     def login(self, user: User, password: str) -> Union[str, None]:
         # Esnure that the user account is not deleted/disabled.

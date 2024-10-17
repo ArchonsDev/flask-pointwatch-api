@@ -1,12 +1,12 @@
 from typing import Any
 from datetime import datetime
 
-from flask import Blueprint, request, Response, Flask
+from flask import Blueprint, request, Response, Flask, redirect, url_for
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, term_service, auth_service
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, MissingRequiredPropertyError, TermNotFoundError, AuthenticationError
+from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, TermNotFoundError, AuthenticationError
 
 class TermController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -27,18 +27,36 @@ class TermController(Blueprint, BaseController):
     @jwt_required()
     def index(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
 
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
         if request.method == 'GET':
-            terms = self.term_service.get_all_terms()
-            if len(terms) > 0:
-                terms = list(filter(lambda term: term.is_deleted == False, terms))
+            params = {
+                "is_deleted": False,
+                **request.args
+            }
+
+            try:    
+                if "start_date" in params:
+                    params["start_date"] = datetime.strptime(params.get("start_date"), "%m-%d-%Y").date()
+                if "end_date" in params:
+                    params["end_date"] = datetime.strptime(params.get("end_date"), "%m-%d-%Y").date()
+            except Exception:
+                raise InvalidDateTimeFormat()
+
+            terms = self.term_service.get_term(
+                lambda q, t: q.filter_by(**params).all()
+            )
 
             return self.build_response({"terms": [term.to_dict() for term in terms]}, 200)
         if request.method == 'POST':
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot create Term.")
+
             data = request.json
             required_fields = [
                 'name',
@@ -49,9 +67,6 @@ class TermController(Blueprint, BaseController):
 
             self.check_fields(data, required_fields)
 
-            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot create Term,")
-            
             try:
                 date_fmt = '%m-%d-%Y'
                 start_date = datetime.strptime(data.get('start_date'), date_fmt)
@@ -71,19 +86,27 @@ class TermController(Blueprint, BaseController):
     @jwt_required()
     def handle_term(self, term_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
 
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
 
-        term = self.term_service.get_term(term_id)
+        term = self.term_service.get_term(
+            lambda q, t: q.filter_by(id=term_id).first()
+        )
 
         if not term or (term and term.is_deleted):
             raise TermNotFoundError()
 
-        if request.method == 'GET':            
-            return self.build_response(term.to_dict(), 200)
+        if request.method == 'GET':         
+            response = {"data": term.to_dict()}  
+            return self.build_response(response, 200)
         if request.method == 'PUT':
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot update Term.")
+
             data = {**request.json}
 
             try:
@@ -102,6 +125,9 @@ class TermController(Blueprint, BaseController):
 
             return self.build_response(term.to_dict(), 200)
         if request.method == 'DELETE':
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot delete Term.")
+
             self.term_service.delete_term(term)
             
             return self.build_response({"message": "Term deleted"}, 200)
@@ -109,31 +135,24 @@ class TermController(Blueprint, BaseController):
     @jwt_required()
     def process_terms(self, term_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        term = self.term_service.get_term(term_id)
-
+        term = self.term_service.get_term(
+            lambda q, t: q.filter_by(id=term_id).first()
+        )
         if not term or (term and term.is_deleted):
             raise TermNotFoundError()
         
-        if request.method == 'GET':
-            author_id = int(request.args.get('author_id')) if 'author_id' in request.args else None
-            
-            if not author_id:
-                raise MissingRequiredPropertyError('author_id')
-
-            if author_id != requester.id and not self.auth_service.has_permissions(requester, 'staff'):
-                raise InsufficientPermissionsError("Must be at least staff to retrieve term SWTDs without specifying the author.")
-            
-            if len(swtd_forms) > 0:
-                swtd_forms = list(filter(lambda swtd_form: swtd_form.author_id == author_id, swtd_forms))
-                swtd_forms = list(filter(lambda swtd_form: swtd_form.date >= term.start_date and swtd_form.date <= term.end_date, term.swtd_forms))
-                swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
-
-            return self.build_response([swtd_form.to_dict() for swtd_form in swtd_forms], 200)
+        author_id = int(request.args.get('author_id')) if 'author_id' in request.args else None
+        
+        if not author_id:
+            return redirect(url_for('swtd.index', term_id=term.id), code=303)
+        else:
+            return redirect(url_for('swtd.index', term_id=term.id, author_id=author_id), code=303)
 
 def setup(app: Flask) -> None:
     app.register_blueprint(TermController('term', __name__, url_prefix='/terms'))

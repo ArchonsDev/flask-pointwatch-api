@@ -46,5 +46,11 @@ class TermClearingError(Exception):
 class TermNotFoundError(Exception):
     pass
 
+class DepartmentNotFoundError(Exception):
+    pass
+
 class UserNotFoundError(Exception):
+    pass
+
+class ProofNotFoundError(Exception):
     pass
