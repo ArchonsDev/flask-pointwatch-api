@@ -4,8 +4,8 @@ from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
-from ..services import jwt_service, user_service, department_service, auth_service
-from ..exceptions import InsufficientPermissionsError, DepartmentNotFoundError, AuthenticationError, UserNotFoundError, DuplicateValueError
+from ..services import jwt_service, user_service, department_service, auth_service, ft_service, term_service
+from ..exceptions import TermNotFoundError, MissingRequiredPropertyError, InsufficientPermissionsError, DepartmentNotFoundError, AuthenticationError, UserNotFoundError, DuplicateValueError
 
 class DepartmentController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -15,12 +15,15 @@ class DepartmentController(Blueprint, BaseController):
         self.user_service = user_service
         self.department_service = department_service
         self.auth_service = auth_service
+        self.ft_service = ft_service
+        self.term_service = term_service
 
         self.map_routes()
 
     def map_routes(self) -> None:
         self.route('/', methods=['GET', 'POST'])(self.index)
         self.route('/<int:department_id>', methods=['GET', 'PUT', 'DELETE'])(self.handle_department)
+        self.route('/<int:department_id>/export', methods=['GET'])(self.export_department_data)
 
     @jwt_required()
     def index(self) -> Response:
@@ -226,6 +229,44 @@ class DepartmentController(Blueprint, BaseController):
             self.department_service.delete_department(department)
             
             return self.build_response({"message": "Department deleted"}, 200)
+        
+    @jwt_required()
+    def export_department_data(self, department_id: int) -> Response:
+        email = self.jwt_service.get_identity_from_token()
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+        
+        department = self.department_service.get_department(
+            lambda q, u: q.filter_by(id=department_id).first()
+        )
+        if not department or (department and department.is_deleted):
+            raise DepartmentNotFoundError()
+        
+        if not "term_id" in request.args:
+            raise MissingRequiredPropertyError("term_id")
+        
+        term = self.term_service.get_term(
+            lambda q, t: q.filter_by(id=int(request.args.get("term_id", 0)), is_deleted=False).first()
+        )
+        if not term:
+            raise TermNotFoundError()
+        
+        if request.method == 'GET':
+            is_head = requester == department.head
+
+            if not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot export staff validation data.")
+
+            content = self.ft_service.export_for_head(requester, department, term)
+
+            headers = {
+                'Content-Disposition': f'attachment; filename="{department.name}_Report.pdf"'
+            }
+
+            return Response(content, mimetype='application/pdf', status=200, headers=headers)
 
 def setup(app: Flask) -> None:
     app.register_blueprint(DepartmentController('department', __name__, url_prefix='/departments'))
