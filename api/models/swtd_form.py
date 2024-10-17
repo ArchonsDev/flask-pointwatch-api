@@ -6,76 +6,59 @@ from .. import db
 class SWTDForm(db.Model):
     __tablename__ = 'tblswtdforms'
     
+    # Record Information
     id = db.Column(db.Integer, primary_key=True)
-    author_id = db.Column(db.Integer, db.ForeignKey('tblusers.id'), nullable=False)
+    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    is_deleted = db.Column(db.Boolean, nullable=False, default=False)
+
+    # Form Data
     title = db.Column(db.String(255), nullable=False)
     venue = db.Column(db.String(255), nullable=False)
     category = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(255), nullable=False)
-    dates = db.Column(db.String(255), nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    total_hours = db.Column(db.Float, nullable=False)
     points = db.Column(db.Float, nullable=False)
-    benefits = db.Column(db.String(2000), nullable=False)
+    benefits = db.Column(db.Text, nullable=False)
     has_deliverables = db.Column(db.Boolean, nullable=False)
-    is_deleted = db.Column(db.Boolean, nullable=False, default=False)
+
+    # Form Validation
+    date_validated = db.Column(db.DateTime)
+    validation_status = db.Column(db.String(255), nullable=False, default="PENDING")
+
+    # Foreign Keys
+    author_id = db.Column(db.Integer, db.ForeignKey('tblusers.id'), nullable=False)
     term_id = db.Column(db.Integer, db.ForeignKey('tblterms.id'), nullable=False)
-    # Link to SWTDValidation
-    validation = db.relationship('SWTDValidation', backref='form', uselist=False, lazy=True)
-    # Link to SWTDComment
-    comments = db.relationship('SWTDComment', backref='swtd_form', lazy=True)
+    validator_id = db.Column(db.Integer, db.ForeignKey('tblusers.id'))
+
+    # Relationships
+    author = db.relationship("User", foreign_keys=[author_id], back_populates="swtd_forms", uselist=False, lazy=True)
+    comments = db.relationship("SWTDComment", foreign_keys="SWTDComment.swtd_id", back_populates="swtd_form", lazy=True)
+    proof = db.relationship("Proof", foreign_keys="Proof.swtd_form_id", back_populates="swtd_form", lazy=True)
+    term = db.relationship("Term", foreign_keys=[term_id], back_populates="swtd_forms", uselist=False, lazy=True)
+    validator = db.relationship("User", foreign_keys=[validator_id], back_populates="validated_swtd_forms", uselist=False, lazy=True)
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            # Record Information
             "id": self.id,
-            "author_id": self.author_id,
+            "date_created": self.date_created.strftime("%m-%d-%Y %H:%M"),
+            "date_modified": self.date_modified.strftime("%m-%d-%Y %H:%M"),
+            "is_deleted": self.is_deleted,
+
+            # Form Data
             "title": self.title,
             "venue": self.venue,
             "category": self.category,
-            "role": self.role,
-            "dates": self.dates_to_json(),
+            "start_date": self.start_date.strftime("%m-%d-%Y"),
+            "end_date": self.end_date.strftime("%m-%d-%Y"),
+            "total_hours": self.total_hours,
             "points": self.points,
             "benefits": self.benefits,
             "has_deliverables": self.has_deliverables,
-            "is_deleted": self.is_deleted,
-            "validation": self.validation.to_dict() if self.validation else None,
-            "term": self.term.to_dict()
+
+            # Form Validation
+            "date_validated": self.date_validated.strftime("%m-%d-%Y %H:%M") if self.date_validated else None,
+            "validation_status": self.validation_status
         }
-
-    @staticmethod
-    def dates_to_str(dates) -> str:
-        date_str = "".join(
-            f"{date.get("date")} {date.get("time_started")}-{date.get("time_ended")},"
-            for date in dates
-        )
-
-        return date_str[:-1]
-
-    def dates_to_json(self) -> dict[str, str]:
-        dateset = []
-
-        dates = self.dates.split(",")
-        for d in dates:
-            date, time = d.split(' ')
-
-            time_started, time_ended = time.split('-')
-
-            dateset.append(
-                {
-                    "date": date,
-                    "time_started": time_started,
-                    "time_ended": time_ended
-                }
-            )
-
-        return dateset
-
-    @property
-    def date(self):
-        dates = [datetime.strptime(f"{d.get("date")}", "%m-%d-%Y") for d in self.dates_to_json()]
-
-        earliest = dates[0]
-
-        for i in range(1, len(dates)):
-            if dates[i] < earliest:
-                earliest = dates[i]
-
-        return earliest.date

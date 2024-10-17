@@ -1,0 +1,19 @@
+Hello {firstname},
+
+This is to inform you that the SWTD Form you have submitted has been validated.
+
+SWTD Form Information
+    Title: {title}
+    Date: {date_created}
+
+Validation Information
+    Status: {status}
+    Date: {validation_date}
+    By: {validator_name}
+
+For more information on this SWTD Form, visit the link: {app_url}/swtds/{swtd_id}
+
+If this has been a mistake, please contact your department head immediately.
+
+Thank you,
+PointWatch Team

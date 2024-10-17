@@ -1,11 +1,7 @@
 from typing import Any
-
-import random
-import string
-from flask import Blueprint, request, url_for, redirect, Response, Flask
+from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
-import redirects
 from ..services import auth_service, user_service, jwt_service, password_encoder_service, mail_service
 from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
 from .base_controller import BaseController
@@ -41,26 +37,42 @@ class AuthController(Blueprint, BaseController):
         # Ensure the required fields are present.
         self.check_fields(data, required_fields)
         
-        existing_user = self.user_service.get_user(email=data.get('email'))
+        existing_user = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=data.get('email')).first()
+        )
         # Ensure that the email provided is not in use.
         if existing_user:
             raise DuplicateValueError('email')
         
-        existing_user = self.user_service.get_user(employee_id=data.get('employee_id'))
+        existing_user = self.user_service.get_user(
+            lambda q, u: q.filter_by(employee_id=data.get('employee_id')).first()
+        )
         # Ensure that the employee ID provided is not in use.
         if existing_user:
             raise DuplicateValueError('employee_id')
 
-        user = self.user_service.create_user(
-            data.get('employee_id'),
-            data.get('email'),
-            data.get('firstname'),
-            data.get('lastname'),
-            data.get('password')
-        )
+        user = self.user_service.create_user(**data)
 
         response = {
-            "user": user.to_dict(),
+            "data": {
+                **user.to_dict(),
+                "clearances": [{
+                    **c.to_dict(),
+                    "user": c.user.to_dict(),
+                    "term": c.term.to_dict()
+                } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
+                "clearings": [{
+                    **c.to_dict(),
+                    "user": c.user.to_dict(),
+                    "term": c.user.to_dict()
+                } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
+                "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
+                "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
+                "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
+                "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
+                "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
+                "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
+            },
             "access_token": self.jwt_service.generate_token(user.email)
         }
 
@@ -77,7 +89,9 @@ class AuthController(Blueprint, BaseController):
         self.check_fields(data, required_fields)
 
         # Ensure that the user exists.
-        user = self.user_service.get_user(email=data.get('email'))
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=data.get('email')).first()
+        )
         if not user:
             raise UserNotFoundError()
         
@@ -90,8 +104,26 @@ class AuthController(Blueprint, BaseController):
             raise AuthenticationError()
 
         response = {
-            "access_token": token,
-            "user": user.to_dict()
+            "data": {
+                **user.to_dict(),
+                "clearances": [{
+                    **c.to_dict(),
+                    "user": c.user.to_dict(),
+                    "term": c.term.to_dict()
+                } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
+                "clearings": [{
+                    **c.to_dict(),
+                    "user": c.user.to_dict(),
+                    "term": c.user.to_dict()
+                } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
+                "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
+                "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
+                "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
+                "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
+                "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
+                "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
+            },
+            "access_token": self.jwt_service.generate_token(user.email)
         }
 
         return self.build_response(response, 200)
@@ -106,7 +138,9 @@ class AuthController(Blueprint, BaseController):
         # Ensure required fields are present.
         self.check_fields(data, required_fields)
         # Check if the email is registered to a user.
-        user = self.user_service.get_user(email=data.get('email'))
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=data.get("email"), is_deleted=False).first()
+        )
         if user:
             self.mail_service.send_recovery_mail(user.email, user.firstname)
 
@@ -124,12 +158,14 @@ class AuthController(Blueprint, BaseController):
         # Ensure that the required fields are present.
         self.check_fields(data, required_fields)
 
-        user = self.user_service.get_user(email=email)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         # Ensure that the user exists.
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
-        self.user_service.update_user(user, password=data.get('password'))
+        self.user_service.update_user(user, {"password": data.get('password')})
         return self.build_response({"message": "Password changed."}, 200)
 
 def setup(app: Flask) -> None:

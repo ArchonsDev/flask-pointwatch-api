@@ -1,12 +1,11 @@
 from typing import Any
-from datetime import datetime
 
-from flask import Blueprint, request, Response, Flask
+from flask import Blueprint, request, Response, Flask, redirect, url_for
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
-from ..services import jwt_service, user_service, auth_service, term_service, ft_service
-from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError
+from ..services import jwt_service, user_service, auth_service, term_service, ft_service, department_service
+from ..exceptions import InsufficientPermissionsError, UserNotFoundError, AuthenticationError, TermNotFoundError, MissingRequiredPropertyError, DepartmentNotFoundError
 
 class UserController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -17,6 +16,7 @@ class UserController(Blueprint, BaseController):
         self.auth_service = auth_service
         self.term_service = term_service
         self.ft_service = ft_service
+        self.department_service = department_service
 
         self.map_routes()
 
@@ -25,78 +25,188 @@ class UserController(Blueprint, BaseController):
         self.route('/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])(self.process_user)
         self.route('/<int:user_id>/points', methods=['GET'])(self.get_points)
         self.route('/<int:user_id>/swtds', methods=['GET'])(self.get_user_swtds)
+        self.route('/<int:user_id>/department', methods=['GET'])(self.get_user_department)
         self.route('/<int:user_id>/terms/<int:term_id>', methods=['GET', 'POST', 'DELETE'])(self.handle_clearing)
         self.route('/<int:user_id>/swtds/export', methods=['GET'])(self.export_swtd_data)
-        self.route('/<int:user_id>/validations/export', methods=['GET'])(self.export_staff_data)
         self.route('/<int:user_id>/clearings/export', methods=['GET'])(self.export_admin_data)
 
     @jwt_required()
     def get_all_users(self) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
+
         # Ensure that the requester exists.
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
-        # Ensure that the requester has permissions.
-        if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot retrieve user list.")
-        
-        params = {**request.args}
 
-        users = self.user_service.get_all_users(params=params)
+        if request.method == 'GET':
+            # URI: GET /users/
+            # Description: Retrieves all users, supports params as filters.
+            # Required access level: 2 (Head).
+            # Params: Refer to user model.
 
-        if len(users) > 0:
-            users = list(filter(lambda user: user.is_deleted == False, users))
+            # Ensure that the requester has permissions.
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot retrieve user list.")
+            
+            # Process Params
+            params = {
+                "is_deleted": False,
+                **request.args
+            }
 
-        return self.build_response({"users": [user.to_dict() for user in users]}, 200)
+            users = self.user_service.get_user(
+                lambda q, u: q.filter_by(**params).all()
+            )
+
+            response = {
+                "data": [{
+                    **u.to_dict(),
+                    "clearances": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.term.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearances))],
+                    "clearings": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.user.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False,u.clearings))],
+                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, u.comments))],
+                    "department": u.department.to_dict() if u.department and u.department.is_deleted == False else None,
+                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.received_notifications))],
+                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.swtd_forms))],
+                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.triggered_notifications))],
+                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.validated_swtd_forms))]
+                } for u in users]
+            }
+
+            return self.build_response(response, 200)
 
     @jwt_required()
     def process_user(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user('email', email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
+
         # Ensure that the requester exists.
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = self.user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         # Ensure that the target exists.
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
 
         if request.method == 'GET':
+            # URI: GET /users/<user_id>/
+            # Description: Returns a user matching the specified ID.
+            # Required access level: 0 (All)-For querying own user data | 2 (Head) for querying other user data.
+            # Params: None
+            is_owner = requester == user
+            is_head_of_target = requester.department is not None and requester.department == user.department and requester == user.department.head
+
             # Ensure that the requester has permission.
-            if not self.auth_service.has_permissions(requester, minimum_auth='staff') and requester.id != user_id:
+            if not is_head_of_target and not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user data.")
             
-            return self.build_response(user.to_dict(), 200)
-        elif request.method == 'PUT':
-            data = request.json
-
-            updated_fields = {
-                "firstname": data.get("firstname"),
-                "lastname": data.get("lastname"),
-                "password": data.get("password"),
-                "department_id": data.get("department_id"),
-                "is_staff": data.get("is_staff"),
-                "is_admin": data.get("is_admin"),
-                "is_superuser": data.get("is_superuser"),
-                "point_balance": data.get("point_balance")
+            response = {
+                "data": {
+                    **user.to_dict(),
+                    "clearances": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.term.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
+                    "clearings": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.user.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
+                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
+                    "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
+                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
+                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
+                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
+                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
+                }
             }
 
+            return self.build_response(response, 200)
+        elif request.method == 'PUT':
+            # URI: PUT /users/<user_id>
+            # Description: Updates a user specified by the ID.
+            # Required access level: 0 (All)-For own user data | 2 (Head) for other user data.
+            # Payload:
+            # - password: str
+            # - firstname: str
+            # - lastname: str
+            # - point_balance: float
+            # - access_level: int
+            # - department_id: int
+
+            is_owner = requester == user
+
             # Ensure that the requester has the required permission.
-            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot update user data.")
-            if 'is_staff' in data and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
-                raise InsufficientPermissionsError("Cannot change user staff status.")
-            if 'is_admin' in data and not self.auth_service.has_permissions(requester, minimum_auth='superuser'):
-                raise InsufficientPermissionsError("Cannot change user admin status.")
-            if 'is_superuser' in data and not self.auth_service.has_permissions(requester, minimum_auth='superuser'):
-                raise InsufficientPermissionsError("Cannot change user superuser status.")
+
+            data = request.json
+
+            if 'point_balance' in data and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot update user point balance.")
+
+            if 'access_level' in data and not requester.is_staff and not self.auth_service.has_permissions(requester, 'custom', data.get('access_level', 0) + 1):
+                raise InsufficientPermissionsError("Cannot update user access level.")
             
-            user = self.user_service.update_user(user, updated_fields)
-            return self.build_response(user.to_dict(), 200)
+            if 'department_id' in data:
+                department = self.department_service.get_department(
+                    lambda q, d: q.filter_by(id=data.get("department_id")).first()
+                )
+
+                if not department:
+                    print("I was called")
+                    raise DepartmentNotFoundError()
+            
+            user = self.user_service.update_user(user, data)
+
+            response = {
+                "data": {
+                    **user.to_dict(),
+                    "clearances": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.term.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
+                    "clearings": [{
+                        **c.to_dict(),
+                        "user": c.user.to_dict(),
+                        "term": c.user.to_dict()
+                    } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
+                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
+                    "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
+                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
+                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
+                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
+                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
+                }
+            }
+
+            return self.build_response(response, 200)
         elif request.method =='DELETE':
-            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            # URI: DEKETE /users/<user_id>
+            # Description: Disables the user specified by the ID.
+            # Required access level: 0 (All) - For own own account | 2 (Head) - For other users.
+            # Params: None
+            
+            is_owner = requester == user
+
+            if not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot delete user.")
 
             self.user_service.delete_user(user)
@@ -105,19 +215,31 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def get_points(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user('email', email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         # Ensure that the requester exists.
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = self.user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         # Ensure that the target exists.
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
 
         if request.method == 'GET':
+            # URI: /GET /users/<user_id>/points
+            # Description: Returns the point summary of the user for the specified Term.
+            # Required access level: 0 (All) - For own own account | 2 (Head) - For other users.
+            # Params:
+            # - term_id : ID of Term.
+            is_owner = requester == user
+            is_head_of_target = requester.department is not None and requester.department == user.department and requester == user.department.head
+
             # Ensure that the requester has permission.
-            if requester.id != user_id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            if not is_owner and not is_head_of_target and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot retrieve user points.")
             
             term_id = int(request.args.get('term_id', 0))
@@ -125,7 +247,9 @@ class UserController(Blueprint, BaseController):
             if not term_id:
                 raise MissingRequiredPropertyError('term_id')
             
-            term = term_service.get_term(term_id)
+            term = term_service.get_term(
+                lambda q, t: q.filter_by(id=term_id).first()
+            )
 
             if not term or (term and term.is_deleted):
                 raise TermNotFoundError()
@@ -135,122 +259,94 @@ class UserController(Blueprint, BaseController):
             return self.build_response(points, 200)
 
     @jwt_required()
-    def get_user_swtds(self, user_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-        # Ensure the requester is authorized.
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
-        
-        user = self.user_service.get_user(id=user_id)
-        # Ensure the target is registered.
-        if not user or (user and user.is_deleted):
-            raise UserNotFoundError()
-        
+    def get_user_swtds(self, user_id: int) -> Response:     
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve user SWTDs")
-            
-            params = request.args
-            date_fmt = "%m-%d-%Y"
-            start_date = None
-            end_date = None
+            return redirect(url_for('swtd.index', author_id=user_id, **request.args), code=303)
 
-            if 'start_date' in params:
-                start_date = datetime.strptime(params.get('start_date'), date_fmt).date()
+    @jwt_required()
+    def get_user_department(self, user_id: int) -> Response:
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
 
-            if 'end_date' in params:
-                end_date = datetime.strptime(params.get('end_date'), date_fmt).date()
+        if not user or user.is_deleted:
+            raise UserNotFoundError()
 
-            swtd_forms = self.user_service.get_user_swtd_forms(user, start_date=start_date, end_date=end_date)
-
-            if len(swtd_forms) > 0:
-                swtd_forms = list(filter(lambda form: form.is_deleted == False, swtd_forms))
-            
-            return self.build_response({"swtd_forms": [form.to_dict() for form in swtd_forms]}, 200)
+        if not user.department:
+            raise DepartmentNotFoundError()
+        
+        return redirect(url_for('department.handle_department', department_id=user.department.id), code=303)
 
     @jwt_required()
     def handle_clearing(self, user_id: int, term_id: int) -> Response:
         email = jwt_service.get_identity_from_token()
 
-        requester = user_service.get_user(email=email)
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = user_service.get_user(id=user_id)
+        user = user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
-        term = term_service.get_term(term_id)
+        term = self.term_service.get_term(
+            lambda q, t: q.filter_by(id=term_id).first()
+        )
         if not term or (term and term.is_deleted):
             raise TermNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            is_owner = requester == user
+
+            if not is_owner and not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
                 raise InsufficientPermissionsError("Cannot get user term data.")
     
-            term_summary = user_service.get_term_summary(user, term)
+            term_summary = self.user_service.get_term_summary(user, term)
             return self.build_response(term_summary, 200)
-
-        if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
-            raise InsufficientPermissionsError("Cannot update user clearance.")
-        
         if request.method == 'POST':
-            self.user_service.clear_user_for_term(requester, user, term)
+            if not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot grant user clearance.")
 
-            return self.build_response({'message': 'Employee clearance granted for term.'}, 200)
+            self.user_service.grant_clearance(requester, user, term)
+
+            return redirect(url_for('user.process_user', user_id=user.id), code=303)
         if request.method == 'DELETE':
-            self.user_service.unclear_user_for_term(user, term)
+            if not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot revoke user clearance.")
 
-            return self.build_response({'message': 'Employee clearance revoked for term.'}, 200)
+            self.user_service.revoke_clearance(user, term)
+            
+            return redirect(url_for('user.process_user', user_id=user.id), code=303)
         
     @jwt_required()
     def export_swtd_data(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = user_service.get_user(id=user_id)
-        if not user or (user and user.is_deleted):
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id, is_deleted=False).first()
+        )
+        if not user:
             raise UserNotFoundError()
         
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            is_owner = requester == user
+
+            if not is_owner and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot export user SWTD data.")
 
-            content = ft_service.dump_user_swtd_data(requester, user)
+            content = self.ft_service.export_for_employee(requester, user)
 
             headers = {
                 'Content-Disposition': f'attachment; filename="{user.employee_id}_SWTDReport.pdf"'
-            }
-
-            return Response(content, mimetype='application/pdf', status=200, headers=headers)
-        
-    @jwt_required()
-    def export_staff_data(self, user_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
-        
-        user = user_service.get_user(id=user_id)
-        if not user or (user and user.is_deleted):
-            raise UserNotFoundError()
-        
-        if not self.auth_service.has_permissions(user, minimum_auth='staff'):
-            raise UserNotFoundError()
-        
-        if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
-                raise InsufficientPermissionsError("Cannot export staff validation data.")
-
-            content = ft_service.dump_staff_validation_data(requester, user)
-
-            headers = {
-                'Content-Disposition': f'attachment; filename="{user.employee_id}_ValidationReport.pdf"'
             }
 
             return Response(content, mimetype='application/pdf', status=200, headers=headers)
@@ -258,20 +354,20 @@ class UserController(Blueprint, BaseController):
     @jwt_required()
     def export_admin_data(self, user_id: int) -> Response:
         email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(email=email)
-
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
         if not requester or (requester and requester.is_deleted):
             raise AuthenticationError()
         
-        user = user_service.get_user(id=user_id)
+        user = self.user_service.get_user(
+            lambda q, u: q.filter_by(id=user_id).first()
+        )
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
-        if not self.auth_service.has_permissions(user, minimum_auth='admin'):
-            raise UserNotFoundError()
-        
         if request.method == 'GET':
-            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='admin'):
+            if requester.id != user.id and not self.auth_service.has_permissions(requester, minimum_auth='head'):
                 raise InsufficientPermissionsError("Cannot export staff validation data.")
 
             content = ft_service.dump_admin_clearing_data(requester, user)

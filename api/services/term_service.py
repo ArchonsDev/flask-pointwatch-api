@@ -1,9 +1,10 @@
-from typing import Union, Any
+from typing import Any, Callable, Iterable
+from datetime import datetime
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import Query
 
 from ..models.term import Term
-from ..exceptions import InvalidParameterError
 
 class TermService:
     def __init__(self, db: SQLAlchemy) -> None:
@@ -23,45 +24,40 @@ class TermService:
             name=name,
             start_date=start_date,
             end_date=end_date,
-            type=type
+            type=type.strip().upper()
         )
 
         self.db.session.add(term)
         self.db.session.commit()
         return term
 
-    def get_term(self, id: int) -> Union[Term, None]:
-        return Term.query.get(id)
-
-    def get_all_terms(self, **params: dict[str, Any]) -> list[Term]:
-        term_query = Term.query
-
-        for key, value in params.items():
-            # Skip 'is_deleted' paramters.
-            if key == 'is_deleted':
-                continue
-
-            if not hasattr(Term, key):
-                raise InvalidParameterError(key)
-            
-            if type(value) is str:
-                term_query = term_query.filter(getattr(Term, key).like(f'%{value}%'))
-            else:
-                term_query = term_query.filter(getattr(Term, key) == value)
-
-        return term_query.all()
+    def get_term(self, filter_func: Callable[[Query, Term], Iterable]) -> Term:
+        return filter_func(Term.query, Term)
 
     def update_term(self, term: Term, **data: dict[str, Any]) -> Term:
-        for key, value in data.items():
-            # Ensure provided key is valid.
-            if not hasattr(Term, key):
-                raise InvalidParameterError(key)
+        allowed_fields = [
+            "name",
+            "start_date",
+            "end_date",
+            "type"
+        ]
 
-            setattr(term, key, value)
+        for field in allowed_fields:
+            value = data.get(field)
 
+            if value is None:
+                continue
+
+            if field == "type":
+                value = value.strip().upper()
+
+            setattr(term, field, value)
+
+        term.date_modified = datetime.now()
         self.db.session.commit()
         return term
 
     def delete_term(self, term: Term) -> None:
         term.is_deleted = True
+        term.date_modified = datetime.now()
         self.db.session.commit()
