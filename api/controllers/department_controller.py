@@ -24,6 +24,7 @@ class DepartmentController(Blueprint, BaseController):
         self.route('/', methods=['GET', 'POST'])(self.index)
         self.route('/<int:department_id>', methods=['GET', 'PUT', 'DELETE'])(self.handle_department)
         self.route('/<int:department_id>/export', methods=['GET'])(self.export_department_data)
+        self.route('/<int:department_id>/staff/export', methods=['GET'])(self.export_staff_data)
 
     @jwt_required()
     def index(self) -> Response:
@@ -261,6 +262,42 @@ class DepartmentController(Blueprint, BaseController):
                 raise InsufficientPermissionsError("Cannot export staff validation data.")
 
             content = self.ft_service.export_for_head(requester, department, term)
+
+            headers = {
+                'Content-Disposition': f'attachment; filename="{department.name}_Report.pdf"'
+            }
+
+            return Response(content, mimetype='application/pdf', status=200, headers=headers)
+
+    @jwt_required()
+    def export_staff_data(self, department_id: int) -> Response:
+        email = self.jwt_service.get_identity_from_token()
+        requester = self.user_service.get_user(
+            lambda q, u: q.filter_by(email=email).first()
+        )
+        if not requester or (requester and requester.is_deleted):
+            raise AuthenticationError()
+        
+        department = self.department_service.get_department(
+            lambda q, u: q.filter_by(id=department_id).first()
+        )
+        if not department or (department and department.is_deleted):
+            raise DepartmentNotFoundError()
+        
+        if not "term_id" in request.args:
+            raise MissingRequiredPropertyError("term_id")
+        
+        term = self.term_service.get_term(
+            lambda q, t: q.filter_by(id=int(request.args.get("term_id", 0)), is_deleted=False).first()
+        )
+        if not term:
+            raise TermNotFoundError()
+        
+        if request.method == 'GET':
+            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+                raise InsufficientPermissionsError("Cannot export staff validation data.")
+
+            content = self.ft_service.export_for_staff(requester, department, term)
 
             headers = {
                 'Content-Disposition': f'attachment; filename="{department.name}_Report.pdf"'

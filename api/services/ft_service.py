@@ -176,7 +176,7 @@ class FTService:
             pdf.add_text("User Information")
             pdf.add_text(f"     Employee ID: {user.employee_id}")
             pdf.add_text(f"     Name: {user.firstname} {user.lastname}")
-            pdf.add_text(f"     Departmennt: {user.department.name}")
+            pdf.add_text(f"     Department: {user.department.name}")
             pdf.add_text("")
 
             pdf.add_text("Term Information")
@@ -326,7 +326,7 @@ class FTService:
 
         return pdf.get_pdf()
 
-    def export_for_hr(self, requester: User, department: User, term: Term) -> io.BytesIO:
+    def export_for_staff(self, requester: User, department: User, term: Term) -> io.BytesIO:
         pdf = PDFComposer()
 
         pdf.add_text("Pointwatch Employee Seminars, Workshops, Trainings, and Development Report.")
@@ -362,11 +362,7 @@ class FTService:
             if member == department.head or member.is_deleted:
                 continue
 
-            swtds = list(filter(lambda swtd_form: swtd_form.term == term, member.swtd_forms))
-            pending_swtds = len(list(filter(lambda swtd_form: swtd_form.validation_status == "PENDING", swtds)))
-            rejected_swtds = len(list(filter(lambda swtd_form: swtd_form.validation_status == "REJECTED", swtds)))
             is_cleared = False
-
             for clearance in member.clearances:
                 if clearance.is_deleted:
                     continue
@@ -379,7 +375,7 @@ class FTService:
             points = self.user_service.get_point_summary(member, term)
 
             pdf.add_text(f"     {member.employee_id} | {member.firstname} {member.lastname}")
-            pdf.add_text(f"     Pending SWTDs: {pending_swtds} | SWTDs For Revision: {rejected_swtds} | Points: {points.valid_points} | Status: {status}")
+            pdf.add_text(f"     Points: {points.valid_points} | Status: {status}")
             pdf.add_text("")
 
             for swtd_form in member.swtd_forms:
