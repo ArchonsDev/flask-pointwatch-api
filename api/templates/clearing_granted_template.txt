@@ -1,0 +1,13 @@
+Hello {firstname},
+
+This is to inform you that you have been granted clearance for {term_name}
+
+Clearance Information
+    Term: {term_name}
+    Date: {date_created}
+    Granted by: {clearer_name}
+
+If this has been a mistake, please contact your department head immediately.
+
+Thank you,
+PointWatch Team

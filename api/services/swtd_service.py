@@ -1,81 +1,72 @@
-from typing import Any, Union
+from typing import Any, Union, Callable, Iterable
 from datetime import datetime
-import json
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import Query
 
 from ..models.swtd_form import SWTDForm
-from ..models.term import Term
 from ..services.term_service import TermService
-from ..exceptions import InvalidParameterError, TermNotFoundError
 
 class SWTDService:
     def __init__(self, db: SQLAlchemy, term_service: TermService) -> None:
         self.db = db
         self.term_service = term_service
 
-    def get_all_swtds(self, params: dict[str, Any]=None) -> list[SWTDForm]:
-        swtd_query = SWTDForm.query
-
-        for key, value in params.items():
-            # Skip 'is_deleted' param.
-            if key == 'is_deleted':
-                continue
-
-            if not hasattr(SWTDForm, key):
-                raise InvalidParameterError(key)
-            
-            if type(value) is str:
-                swtd_query = swtd_query.filter(getattr(SWTDForm, key).like(f'%{value}%'))
-            else:
-                swtd_query = swtd_query.filter(getattr(SWTDForm, key) == value)
-
-        return swtd_query.all()
-
-    def create_swtd(self, author_id: int, title: str, venue: str, category: str, role: str, dates: str, points: int, benefits: str, has_deliverables: bool, term: Term) -> SWTDForm:
+    def create_swtd(self, **data: dict[str, Any]) -> SWTDForm:
         swtd_form = SWTDForm(
-            author_id=author_id,
-            title=title,
-            venue=venue,
-            category=category,
-            role=role,
-            dates=SWTDForm.dates_to_str(json.loads(dates)),
-            points=points,
-            benefits=benefits,
-            has_deliverables=True if has_deliverables.lower().startswith("true") else False,
-            term=term
+            title=data.get("title"),
+            venue=data.get("venue"),
+            category=data.get("category"),
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date"),
+            total_hours=data.get("total_hours"),
+            points=data.get("points"),
+            benefits=data.get("benefits"),
+            has_deliverables=data.get("has_deliverables"),
+            author_id=data.get("author_id"),
+            term_id=data.get("term_id")
         )
 
         self.db.session.add(swtd_form)
         self.db.session.commit()
-
         return swtd_form
 
-    def get_swtd(self, id: int) -> Union[SWTDForm, None]:
-        return SWTDForm.query.get(id)
+    def get_swtd(self, filter_func: Callable[[Query, SWTDForm], Iterable]) -> Union[SWTDForm, None]:
+        return filter_func(SWTDForm.query, SWTDForm)
 
     def update_swtd(self, swtd_form: SWTDForm, **data: dict[str, Any]) -> SWTDForm:
-        for key, value in data.items():
-            # Ensure provided key is valid.
-            if not hasattr(SWTDForm, key):
-                raise InvalidParameterError(key)
+        allowed_fields = [
+            "title",
+            "venue",
+            "category",
+            "start_date",
+            "end_date",
+            "total_hours",
+            "points",
+            "benefits",
+            "has_deliverables",
+            "term_id",
+            "validation_status",
+            "validator_id",
+            "date_validated",
+            "is_deleted"
+        ]
 
-            if key == "dates":
-                value = SWTDForm.dates_to_str(value)
+        for field in allowed_fields:
+            value = data.get(field)
 
-            if key == 'term_id':
-                term = self.term_service.get_term(value)
+            if value == None:
+                continue
 
-                if not term:
-                    raise TermNotFoundError()
-                
-                swtd_form.term = term
+            if field == "validation_status" and value == "PENDING":
+                swtd_form.date_validated = None
+                swtd_form.validator_id = None
 
-            setattr(swtd_form, key, value)
+            setattr(swtd_form, field, value)
 
+        swtd_form.date_modified = datetime.now()
         self.db.session.commit()
         return swtd_form
 
-    def delete_swtd(self, swtd_form: SWTDForm) -> None:
-        swtd_form.is_deleted = True
-        self.db.session.commit()
+    def delete_swtd(self, swtd_form):
+        self.update_swtd(swtd_form, is_deleted=True)

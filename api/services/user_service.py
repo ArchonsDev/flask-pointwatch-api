@@ -1,15 +1,17 @@
-from typing import Union, Any
+from typing import Union, Any, Callable, Iterable
+from datetime import datetime
 
-import json
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import Query
 
 from ..models.point_summary import PointSummary
-from ..models.swtd_form import SWTDForm
 from ..models.term import Term
 from ..models.user import User
+
 from ..services.password_encoder_service import PasswordEncoderService
 from ..services.clearing_service import ClearingService
-from ..exceptions import InvalidParameterError, InsufficientSWTDPointsError, TermClearingError
+
+from ..exceptions import InsufficientSWTDPointsError, TermClearingError
 
 class UserService:
     def __init__(self, db: SQLAlchemy, password_encoder_service: PasswordEncoderService, clearing_service: ClearingService) -> None:
@@ -17,14 +19,17 @@ class UserService:
         self.password_encoder_service = password_encoder_service
         self.clearing_service = clearing_service
 
-    def create_user(self, employee_id: str, email: str, firstname: str, lastname: str, password: str, department: str=None) -> User:
+    # Create
+    def create_user(self, **data: dict[str, Any]) -> User:
         user = User(
-            employee_id=employee_id,
-            email=email,
-            firstname=firstname,
-            lastname=lastname,
-            password=self.password_encoder_service.encode_password(password),
-            department=department
+            # Credentials
+            email=data.get("email"),
+            password=self.password_encoder_service.encode_password(data.get("password")),
+
+            # Profile
+            employee_id=data.get("employee_id"),
+            firstname=data.get("firstname"),
+            lastname=data.get("lastname")
         )
         
         self.db.session.add(user)
@@ -32,69 +37,49 @@ class UserService:
 
         return user
 
-    def get_user(self, id: int=None, email: str=None, employee_id: str=None) -> Union[User, None]:
-        query = User.query
+    # Read One
+    def get_user(self, filter_func: Callable[[Query, User], Iterable]) -> Union[User, None]:
+        return filter_func(User.query, User)
 
-        if employee_id:
-            return query.filter_by(employee_id=employee_id).first()
+    # Update
+    def update_user(self, user: User, data: dict[str, Any]) -> User:
+        allowed_fields = [
+            "access_level",
+            "department_id",
+            "firstname",
+            "is_deleted",
+            "is_ms_linked",
+            "lastname",
+            "point_balance",
+            "password"
+        ]
 
-        if email:
-            return query.filter_by(email=email).first()
-        
-        user = query.get(id)
+        for field in allowed_fields:
+            value = data.get(field)
 
-        return user
+            if value is None:
+                continue
 
-    def get_all_users(self, params: dict[str, Any]={}) -> list[User]:
-        user_query = User.query
-
-        for key, value in params.items():
-            # Ensure provided key is valid.
-            if not hasattr(User, key):
-                raise InvalidParameterError(key)
-
-            if type(key) is str:
-                user_query = user_query.filter(getattr(User, key).like(f'%{value}%'))
-            else:
-                user_query = user_query.filter(getattr(User, key) == value)
-  
-        return user_query.all()
-
-    def update_user(self, user: User, **data: dict[str, Any]) -> User:
-        for key, value in data.items():
-            # Ensure provided key is valid.
-            if not hasattr(User, key):
-                raise InvalidParameterError(key)
-            
-            if key == 'password':
+            if field == 'password':
                 value = self.password_encoder_service.encode_password(value)
 
-            setattr(user, key, value)
+            setattr(user, field, value)
 
+        user.date_modified = datetime.now()
         self.db.session.commit()
         return user
     
     def delete_user(self, user) -> None:
         user.is_deleted = True
+        user.date_modified = datetime.now()
         self.db.session.commit()
-
-    def get_user_swtd_forms(self, user: User, start_date: str=None, end_date: str=None) -> list[SWTDForm]:
-        swtd_forms = user.swtd_forms
-
-        if start_date:
-            swtd_forms = list(filter(lambda form: form.date >= start_date, swtd_forms))
-
-        if end_date:
-            swtd_forms = list(filter(lambda form: form.date <= end_date, swtd_forms))
-
-        return swtd_forms
 
     def get_point_summary(self, user: User, term: Term) -> PointSummary:
         swtd_forms = list(filter(
             lambda form: (form.is_deleted == False) & 
-            (form.date() >= term.start_date) & 
-            (form.date() <= term.end_date) &
-            (form.author_id == user.id),
+            (form.start_date >= term.start_date) & 
+            (form.start_date <= term.end_date) &
+            (form.author == user),
             term.swtd_forms
         ))
 
@@ -102,7 +87,7 @@ class UserService:
 
         # Compute VALID, PENDING, and INVALID points
         for form in swtd_forms:
-            status = form.validation.status
+            status = form.validation_status
 
             if status == 'APPROVED':
                 points.valid_points += form.points
@@ -111,26 +96,31 @@ class UserService:
             elif status == 'REJECTED':
                 points.invalid_points += form.points
 
-        # Compute LACKING points
-        with open('point_requirements.json', 'r') as f:
-            POINT_REQ = json.load(f)
-            TERM_TYPE_REQ = POINT_REQ.get(term.type)
+        points.required_points = -1
 
-            points.required_points = TERM_TYPE_REQ.get(user.department, 0)
+        if user.department:
+            if term.type == "MIDYEAR/SUMMER":
+                points.required_points = user.department.midyear_points
+            else:
+                points.required_points = user.department.required_points
 
         return points
     
     def get_term_summary(self, user: User, term: Term) -> dict[str, Any]:
         points = self.get_point_summary(user, term)
-        clearing = self.clearing_service.get_user_term_clearing(user.id, term.id)
+        clearing = self.clearing_service.get_clearing(
+            lambda q, c: q.filter_by(user_id=user.id, term_id=term.id, is_deleted=False).first()
+        )
 
         return {
             "is_cleared": clearing is not None,
             "points": points
         }
 
-    def clear_user_for_term(self, user: User, target: User, term: Term) -> None:
-        if self.clearing_service.get_user_term_clearing(target.id, term.id):
+    def grant_clearance(self, user: User, target: User, term: Term) -> None:
+        if self.clearing_service.get_clearing(
+            lambda q, c: q.filter_by(user_id=target.id, term_id=term.id, is_deleted=False).first()
+        ):
             raise TermClearingError("User already cleared for this term.")
 
         points = self.get_point_summary(target, term)
@@ -140,22 +130,29 @@ class UserService:
             raise InsufficientSWTDPointsError(points.lacking_points)
         
         target.point_balance += points.excess_points - points.lacking_points
+        target.date_modified = datetime.now()
 
-        self.clearing_service.create_clearing(
-            target.id,
-            term.id,
-            user.id,
+        clearing = self.clearing_service.create_clearing(
+            user_id=target.id,
+            term_id=term.id,
+            clearer_id=user.id,
             applied_points=points.lacking_points
         )
 
-    def unclear_user_for_term(self, target: User, term: Term) -> None:
+        return clearing
+
+    def revoke_clearance(self, target: User, term: Term) -> None:
         points = self.get_point_summary(target, term)
 
-        clearing = self.clearing_service.get_user_term_clearing(target.id, term.id)
+        clearing = self.clearing_service.get_clearing(
+            lambda q, c: q.filter_by(user_id=target.id, term_id=term.id, is_deleted=False).first()
+        )
         if not clearing:
             raise TermClearingError("User has not been cleared for this term.")
 
         target.point_balance -= points.excess_points - clearing.applied_points
-
-        self.db.session.delete(clearing)
+        target.date_modified = datetime.now()
         self.db.session.commit()
+
+        clearing = self.clearing_service.update_clearing(clearing, is_deleted=True)
+        return clearing

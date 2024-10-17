@@ -13,5 +13,5 @@ class BaseController:
 
     def check_fields(self, data: dict[str, Any], required_fields: list[str]):
         for field in required_fields:
-            if not data.get(field):
+            if field not in data:
                 raise MissingRequiredPropertyError(field)
