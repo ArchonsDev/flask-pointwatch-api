@@ -260,10 +260,14 @@ class FTService:
         pdf.add_text("Department Information")
         pdf.add_text(f"     Name: {department.name}")
         pdf.add_text(f"     Required points per {'Academic Year' if department.use_schoolyear else 'Semester'}: {department.required_points}")
+        
         if department.midyear_points > 0:
             pdf.add_text(f"     Required points per Midyear/Summer: {department.midyear_points}")
-        pdf.add_text(f"     Head: {department.head.firstname} {department.head.lastname}")
+        
+        fullname = f"{department.head.firstname} {department.head.lastname}" if department.head else None
+        pdf.add_text(f"     Head: {fullname}")
         pdf.add_text("")
+
 
         total_employees = len(list(filter(lambda u: u.is_deleted == False, department.members))) - 1
         cleared_employees  = 0
@@ -354,7 +358,9 @@ class FTService:
         pdf.add_text(f"     Required points per {'Academic Year' if department.use_schoolyear else 'Semester'}: {department.required_points}")
         if department.midyear_points > 0:
             pdf.add_text(f"     Required points per Midyear/Summer: {department.midyear_points}")
-        pdf.add_text(f"     Head: {department.head.firstname} {department.head.lastname}")
+
+        fullname = f"{department.head.firstname} {department.head.lastname}" if department.head else None
+        pdf.add_text(f"     Head: {fullname}")
         pdf.add_text("")
 
         total_employees = len(list(filter(lambda u: u.is_deleted == False, department.members)))
