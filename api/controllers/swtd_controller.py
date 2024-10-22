@@ -34,7 +34,7 @@ class SWTDController(Blueprint, BaseController):
         self.route('/<int:form_id>/comments/<int:comment_id>', methods=['PUT'])(self.update_swtd_comment)
         self.route('/<int:form_id>/comments/<int:comment_id>', methods=['DELETE'])(self.delete_swtd_comment)
         self.route('/<int:form_id>/proof', methods=['POST'])(self.add_swtd_proof)
-        self.route('/<int:form_id>/proof/<int:proof_id>', methods=['POST'])(self.show_proof)
+        self.route('/<int:form_id>/proof/<int:proof_id>', methods=['GET'])(self.show_proof)
         self.route('/<int:form_id>/proof/<int:proof_id>', methods=['DELETE'])(self.delete_swtd_proof)
 
     @jwt_required()
