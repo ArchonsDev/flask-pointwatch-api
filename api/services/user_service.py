@@ -42,7 +42,7 @@ class UserService:
         return filter_func(User.query, User)
 
     # Update
-    def update_user(self, user: User, data: dict[str, Any]) -> User:
+    def update_user(self, user: User, **data: dict[str, Any]) -> User:
         allowed_fields = [
             "access_level",
             "department_id",
@@ -70,9 +70,7 @@ class UserService:
         return user
     
     def delete_user(self, user) -> None:
-        user.is_deleted = True
-        user.date_modified = datetime.now()
-        self.db.session.commit()
+        self.update_user(user, is_deleted=True)
 
     def get_point_summary(self, user: User, term: Term) -> PointSummary:
         swtd_forms = list(filter(
@@ -84,7 +82,6 @@ class UserService:
         ))
 
         points = PointSummary()
-
         # Compute VALID, PENDING, and INVALID points
         for form in swtd_forms:
             status = form.validation_status

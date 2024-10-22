@@ -8,8 +8,8 @@ class Clearing(db.Model):
 
     # Record Information
     id = db.Column(db.Integer, primary_key=True)
-    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now())
-    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
     # Clearing Data
@@ -34,5 +34,9 @@ class Clearing(db.Model):
             "is_deleted": self.is_deleted,
 
             # Clearing Data
-            "applied_points": self.applied_points
+            "applied_points": self.applied_points,
+
+            "clearer": self.clearer.to_dict(),
+            "user": self.user.to_dict(),
+            "term": self.term.to_dict()
         }

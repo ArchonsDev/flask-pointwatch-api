@@ -22,7 +22,6 @@ class SWTDService:
             total_hours=data.get("total_hours"),
             points=data.get("points"),
             benefits=data.get("benefits"),
-            has_deliverables=data.get("has_deliverables"),
             author_id=data.get("author_id"),
             term_id=data.get("term_id")
         )
@@ -44,7 +43,6 @@ class SWTDService:
             "total_hours",
             "points",
             "benefits",
-            "has_deliverables",
             "term_id",
             "validation_status",
             "validator_id",

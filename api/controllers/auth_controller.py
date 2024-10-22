@@ -54,25 +54,7 @@ class AuthController(Blueprint, BaseController):
         user = self.user_service.create_user(**data)
 
         response = {
-            "data": {
-                **user.to_dict(),
-                "clearances": [{
-                    **c.to_dict(),
-                    "user": c.user.to_dict(),
-                    "term": c.term.to_dict()
-                } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
-                "clearings": [{
-                    **c.to_dict(),
-                    "user": c.user.to_dict(),
-                    "term": c.user.to_dict()
-                } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
-                "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
-                "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
-                "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
-                "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
-                "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
-                "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
-            },
+            "user": user.to_dict(),
             "access_token": self.jwt_service.generate_token(user.email)
         }
 
@@ -104,25 +86,7 @@ class AuthController(Blueprint, BaseController):
             raise AuthenticationError()
 
         response = {
-            "data": {
-                **user.to_dict(),
-                "clearances": [{
-                    **c.to_dict(),
-                    "user": c.user.to_dict(),
-                    "term": c.term.to_dict()
-                } for c in list(filter(lambda c: c.is_deleted == False, user.clearances))],
-                "clearings": [{
-                    **c.to_dict(),
-                    "user": c.user.to_dict(),
-                    "term": c.user.to_dict()
-                } for c in list(filter(lambda c: c.is_deleted == False, user.clearings))],
-                "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, user.comments))],
-                "department": user.department.to_dict() if user.department and user.department.is_deleted == False else None,
-                "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.received_notifications))],
-                "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.swtd_forms))],
-                "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, user.triggered_notifications))],
-                "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, user.validated_swtd_forms))]
-            },
+            "data": user.to_dict(),
             "access_token": self.jwt_service.generate_token(user.email)
         }
 
@@ -165,7 +129,7 @@ class AuthController(Blueprint, BaseController):
         if not user or (user and user.is_deleted):
             raise UserNotFoundError()
         
-        self.user_service.update_user(user, {"password": data.get('password')})
+        self.user_service.update_user(user, password=data.get("password"))
         return self.build_response({"message": "Password changed."}, 200)
 
 def setup(app: Flask) -> None:

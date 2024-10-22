@@ -1,11 +1,12 @@
 from typing import Any
+from datetime import datetime, date
 
 from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, department_service, auth_service, ft_service, term_service
-from ..exceptions import TermNotFoundError, MissingRequiredPropertyError, InsufficientPermissionsError, DepartmentNotFoundError, AuthenticationError, UserNotFoundError, DuplicateValueError
+from ..exceptions import ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError, InsufficientPermissionsError, DepartmentNotFoundError, AuthenticationError, UserNotFoundError, DuplicateValueError
 
 class DepartmentController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -21,269 +22,168 @@ class DepartmentController(Blueprint, BaseController):
         self.map_routes()
 
     def map_routes(self) -> None:
-        self.route('/', methods=['GET', 'POST'])(self.index)
-        self.route('/<int:department_id>', methods=['GET', 'PUT', 'DELETE'])(self.handle_department)
+        self.route('', methods=['GET'])(self.get_all_departments)
+        self.route('', methods=['POST'])(self.create_department)
+        self.route('/<int:department_id>', methods=['GET'])(self.get_department)
+        self.route('/<int:department_id>', methods=['PUT'])(self.update_department)
+        self.route('/<int:department_id>', methods=['DELETE'])(self.delete_department)
+        self.route('/<int:department_id>/<field_name>', methods=['GET'])(self.get_department_property)
         self.route('/<int:department_id>/export', methods=['GET'])(self.export_department_data)
         self.route('/<int:department_id>/staff/export', methods=['GET'])(self.export_staff_data)
 
+    def get_all_departments(self) -> Response:
+        args = {"is_deleted": False, **request.args}
+        departments = self.department_service.get_department(lambda q, d: q.filter_by(**args).all())
+
+        return self.build_response({"departments": [d.to_dict() for d in departments]}, 200)
+
     @jwt_required()
-    def index(self) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=email).first()
+    def create_department(self) -> Response:
+        requester = self.jwt_service.get_requester()
+
+        if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            raise InsufficientPermissionsError("Cannot create department.")
+        
+        data = {**request.json}
+        required_fields = [
+            "name",
+            "required_points",
+            "level",
+            "midyear_points",
+            "use_schoolyear"
+        ]
+
+        self.check_fields(data, required_fields)
+
+        department = self.department_service.create_department(
+            data.get('name'),
+            data.get('required_points'),
+            data.get('level'),
+            data.get('midyear_points'),
+            data.get('use_schoolyear')
         )
 
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+        return self.build_response({"department": department.to_dict()}, 200)
 
-        if request.method == 'GET':
-            args = {
-                "is_deleted": False,
-                **request.args
-            }
+    def get_department(self, department_id: int) -> Response:
+        department = self.department_service.get_department(lambda q, d: q.filter_by(id=department_id, is_deleted=False).first())
+        if not department: raise DepartmentNotFoundError()
 
-            use_basic_view = args.pop("basic_view", '').lower() in ("true", "1")
+        return self.build_response({"department": department.to_dict()}, 200)
 
-            if not use_basic_view and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-                raise InsufficientPermissionsError("Cannot retrieve department list.")
-
-            departments = self.department_service.get_department(
-                lambda q, d: q.filter_by(**args).all()
-            )
-
-            response = {
-                "departments": [{
-                    **d.to_dict(),
-                    "members": [{
-                        **u.to_dict(),
-                    "clearances": [{
-                        **c.to_dict(),
-                        "user": c.user.to_dict(),
-                        "term": c.term.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearances))],
-                    "clearings": [{
-                        **c.to_dict(),
-                        "user": c.user.to_dict(),
-                        "term": c.user.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearings))],
-                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, u.comments))],
-                    "department": u.department.to_dict() if u.department and u.department.is_deleted == False else None,
-                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.received_notifications))],
-                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.swtd_forms))],
-                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.triggered_notifications))],
-                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.validated_swtd_forms))]
-                    } for u in d.members] if not use_basic_view else None,
-                    "head": d.head.to_dict() if d.head and not use_basic_view else None
-                } for d in departments]
-            }
-
-            return self.build_response(response, 200)
-        if request.method == 'POST':
-            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot create Department.")
-
-            data = request.json
-            required_fields = [
-                "name",
-                "required_points",
-                "level",
-                "midyear_points",
-                "use_schoolyear"
-            ]
-
-            self.check_fields(data, required_fields)
-
-            department = self.department_service.create_department(
-                data.get('name'),
-                data.get('required_points'),
-                data.get('level'),
-                data.get('midyear_points'),
-                data.get('use_schoolyear')
-            )
-
-            response = {
-                **department.to_dict()
-            }
-
-            return self.build_response(response, 200)
-    
     @jwt_required()
-    def handle_department(self, department_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=email).first()
-        )
+    def update_department(self, department_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+        if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            raise InsufficientPermissionsError("Cannot update department.")
 
-        department = self.department_service.get_department(
-            lambda q, d: q.filter_by(id=department_id).first()
-        )
-        if not department or (department and department.is_deleted):
-            raise DepartmentNotFoundError()
+        department = self.department_service.get_department(lambda q, d: q.filter_by(id=department_id, is_deleted=False).first())
+        if not department: raise DepartmentNotFoundError()
 
-        if request.method == 'GET':
-            is_member = requester in department.members
-            use_basic_view = request.args.get("basic_view", '') in ("true", "1")
+        params = {**request.json}
 
-            if not is_member and not use_basic_view and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-                raise InsufficientPermissionsError("Could not retrieve department data.")
+        if "head_id" in params and not "remove_head" in params:
+            head_id = params.pop("head_id")
 
-            response = {
-                **department.to_dict(),
-                "members": [{
-                    **u.to_dict(),
-                    "clearances": [{
-                        **c.to_dict(),
-                        "user": c.user.to_dict(),
-                        "term": c.term.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearances))],
-                    "clearings": [{
-                        **c.to_dict(),
-                        "user": c.user.to_dict(),
-                        "term": c.user.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearings))],
-                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, u.comments))],
-                    "department": u.department.to_dict() if u.department and u.department.is_deleted == False else None,
-                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.received_notifications))],
-                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.swtd_forms))],
-                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.triggered_notifications))],
-                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.validated_swtd_forms))]
-                } for u in department.members] if requester.is_head and not use_basic_view else None,
-                "head": department.head.to_dict() if department.head and not use_basic_view else None
-            }
-            
-            return self.build_response(response, 200)
-        if request.method == 'PUT':
-            if not requester.is_head and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-                raise InsufficientPermissionsError("Could not update department data.")
+            head = self.user_service.get_user(lambda q, u: q.filter_by(id=head_id).first())
+            if not head: raise UserNotFoundError()
 
-            params = {**request.json}
+            if department.head == head: raise DuplicateValueError("head")
 
-            if "head_id" in params and not "remove_head" in params:
-                head_id = params.pop("head_id")
+            params["head"] = head
 
-                head = self.user_service.get_user(
-                    lambda q, u: q.filter_by(id=head_id).first()
-                )
+        department = self.department_service.update_department(department, **params)
+        return self.build_response({"department": department.to_dict()}, 200)
 
-                if not head:
-                    raise UserNotFoundError()
-                
-                if head.is_head:
-                    raise DuplicateValueError("head")
+    @jwt_required()
+    def delete_department(self, department_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-                params["head"] = head
+        if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            raise InsufficientPermissionsError("Could not delete department.")
 
-            department = self.department_service.update_department(department, **params)
+        department = self.department_service.get_department(lambda q, d: q.filter_by(id=department_id, is_deleted=False).first())
+        if not department: raise DepartmentNotFoundError()
 
-            response = {
-                **department.to_dict(),
-                "members": [{
-                    **u.to_dict(),
-                    "clearances": [{
-                        **c.to_dict(),
-                        "user": c.user.to_dict(),
-                        "term": c.term.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearances))],
-                    "clearings": [{
-                        **c.to_dict(),
-                        "user": c.user.to_dict(),
-                        "term": c.user.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, u.clearings))],
-                    "comments": [c.to_dict() for c in list(filter(lambda c: c.is_deleted == False, u.comments))],
-                    "department": u.department.to_dict() if u.department and u.department.is_deleted == False else None,
-                    "received_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.received_notifications))],
-                    "swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.swtd_forms))],
-                    "triggered_notifications": [n.to_dict() for n in list(filter(lambda n: n.is_deleted == False, u.triggered_notifications))],
-                    "validated_swtd_forms": [s.to_dict() for s in list(filter(lambda s: s.is_deleted == False, u.validated_swtd_forms))]
-                } for u in department.members] if requester.is_head else None,
-                "head": department.head.to_dict() if department.head else None
-            }
+        self.department_service.delete_department(department)
+        return self.build_response({"message": "Department deleted"}, 200)
 
-            return self.build_response(response, 200)
-        if request.method == 'DELETE':
-            if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-                raise InsufficientPermissionsError("Could not delete department.")
+    @jwt_required()
+    def get_department_property(self, department_id: int, field_name: str) -> Response:
+        requester = self.jwt_service.get_requester()
 
-            self.department_service.delete_department(department)
-            
-            return self.build_response({"message": "Department deleted"}, 200)
+        protected_fields = ["members"]
+
+        department = self.department_service.get_department(lambda q, d: q.filter_by(id=department_id, is_deleted=False). first())
+        if not department: raise DepartmentNotFoundError()
+
+        if field_name in protected_fields and not department.head == requester and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            raise InsufficientPermissionsError(f"Cannot retrieve data for department {field_name}")
+        
+        if not hasattr(department, field_name): raise ResourceNotFoundError()
+        prop = getattr(department, field_name, None)
+        use_list = isinstance(prop, list)
+
+        response = {}
+        try:
+            response[field_name] = [o.to_dict() for o in prop] if use_list else prop.to_dict()
+        except AttributeError:
+            if isinstance(prop, datetime):
+                response[field_name] = prop.strftime("%m-%d-%Y %H:%M")
+            elif isinstance(prop, date):
+                response[field_name] = prop.strftime("%m-%d-%Y")
+            else:
+                response[field_name] = prop
+
+        return self.build_response(response, 200)
         
     @jwt_required()
     def export_department_data(self, department_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=email).first()
-        )
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+        requester = self.jwt_service.get_requester()
         
-        department = self.department_service.get_department(
-            lambda q, u: q.filter_by(id=department_id).first()
-        )
-        if not department or (department and department.is_deleted):
-            raise DepartmentNotFoundError()
+        department = self.department_service.get_department(lambda q, u: q.filter_by(id=department_id, is_deleted=False).first())
+
+        if not department: raise DepartmentNotFoundError()
         
-        if not "term_id" in request.args:
-            raise MissingRequiredPropertyError("term_id")
+        if not "term_id" in request.args: raise MissingRequiredPropertyError("term_id")
         
-        term = self.term_service.get_term(
-            lambda q, t: q.filter_by(id=int(request.args.get("term_id", 0)), is_deleted=False).first()
-        )
-        if not term:
-            raise TermNotFoundError()
+        term = self.term_service.get_term(lambda q, t: q.filter_by(id=int(request.args.get("term_id", 0)), is_deleted=False).first())
+        if not term: raise TermNotFoundError()
         
-        if request.method == 'GET':
-            is_head = requester == department.head
+        if not department.head == requester and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot export staff validation data.")
 
-            if not is_head and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot export staff validation data.")
+        content = self.ft_service.export_for_head(requester, department, term)
 
-            content = self.ft_service.export_for_head(requester, department, term)
+        headers = {
+            'Content-Disposition': f'attachment; filename="{department.name}_Report.pdf"'
+        }
 
-            headers = {
-                'Content-Disposition': f'attachment; filename="{department.name}_Report.pdf"'
-            }
-
-            return Response(content, mimetype='application/pdf', status=200, headers=headers)
+        return Response(content, mimetype='application/pdf', status=200, headers=headers)
 
     @jwt_required()
     def export_staff_data(self, department_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=email).first()
-        )
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+        requester = self.jwt_service.get_requester()
         
-        department = self.department_service.get_department(
-            lambda q, u: q.filter_by(id=department_id).first()
-        )
-        if not department or (department and department.is_deleted):
-            raise DepartmentNotFoundError()
+        department = self.department_service.get_department(lambda q, u: q.filter_by(id=department_id, is_deleted=False).first())
+        if not department: raise DepartmentNotFoundError()
         
-        if not "term_id" in request.args:
-            raise MissingRequiredPropertyError("term_id")
+        if not "term_id" in request.args: raise MissingRequiredPropertyError("term_id")
         
-        term = self.term_service.get_term(
-            lambda q, t: q.filter_by(id=int(request.args.get("term_id", 0)), is_deleted=False).first()
-        )
-        if not term:
-            raise TermNotFoundError()
+        term = self.term_service.get_term(lambda q, t: q.filter_by(id=int(request.args.get("term_id", 0)), is_deleted=False).first())
+        if not term: raise TermNotFoundError()
         
-        if request.method == 'GET':
-            if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot export staff validation data.")
+        if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot export staff validation data.")
 
-            content = self.ft_service.export_for_staff(requester, department, term)
+        content = self.ft_service.export_for_staff(requester, department, term)
 
-            headers = {
-                'Content-Disposition': f'attachment; filename="{department.name}_Report.pdf"'
-            }
+        headers = {
+            'Content-Disposition': f'attachment; filename="{department.name}_Report.pdf"'
+        }
 
-            return Response(content, mimetype='application/pdf', status=200, headers=headers)
+        return Response(content, mimetype='application/pdf', status=200, headers=headers)
 
 def setup(app: Flask) -> None:
     app.register_blueprint(DepartmentController('department', __name__, url_prefix='/departments'))

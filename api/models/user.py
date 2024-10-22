@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
@@ -9,8 +10,8 @@ class User(db.Model):
 
     # Record information
     id = db.Column(db.Integer, primary_key=True)
-    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now())
-    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
     # Credentials
@@ -55,6 +56,12 @@ class User(db.Model):
     @property
     def is_superuser(self) -> bool:
         return self.access_level == 3
+    
+    def is_head_of(self, user: User) -> bool:
+        if not user.department:
+            return False
+        
+        return user.department.head == self
 
     def to_dict(self) -> dict[str, Any]:
         return {

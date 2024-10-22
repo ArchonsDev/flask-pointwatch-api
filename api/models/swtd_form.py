@@ -8,8 +8,8 @@ class SWTDForm(db.Model):
     
     # Record Information
     id = db.Column(db.Integer, primary_key=True)
-    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now())
-    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
     # Form Data
@@ -60,5 +60,7 @@ class SWTDForm(db.Model):
 
             # Form Validation
             "date_validated": self.date_validated.strftime("%m-%d-%Y %H:%M") if self.date_validated else None,
-            "validation_status": self.validation_status
+            "validation_status": self.validation_status,
+
+            "author": self.author.to_dict()
         }

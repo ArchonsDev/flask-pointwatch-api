@@ -9,8 +9,8 @@ class Department(db.Model):
 
     # Record Inormation
     id = db.Column(db.Integer, primary_key=True)
-    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now())
-    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    date_modified = db.Column(db.DateTime, nullable=False, default=datetime.now)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 
     # Department Data

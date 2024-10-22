@@ -8,7 +8,7 @@ class Proof(db.Model):
 
     # Record Information
     id = db.Column(db.Integer, primary_key=True)
-    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    date_created = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
     # Proof Metadata
     path = db.Column(db.Text, nullable=False)

@@ -1,11 +1,11 @@
 from typing import Any
-from datetime import datetime
+from datetime import datetime, date
 
 from flask import Blueprint, request, Response, Flask, redirect, url_for
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
-from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_validation_service, swtd_comment_service, term_service
+from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_comment_service, term_service
 from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError, TermNotFoundError, AuthenticationError, ProofNotFoundError, UserNotFoundError
 
 class SWTDController(Blueprint, BaseController):
@@ -17,476 +17,308 @@ class SWTDController(Blueprint, BaseController):
         self.user_service = user_service
         self.auth_service = auth_service
         self.ft_service = ft_service
-        self.swtd_validation_service = swtd_validation_service
         self.swtd_comment_service = swtd_comment_service
         self.term_service = term_service
 
         self.map_routes()
 
     def map_routes(self) -> None:
-        self.route('/', methods=['GET', 'POST'])(self.index)
-        self.route('/<int:form_id>', methods=['GET', 'PUT', 'DELETE'])(self.process_swtd)
-        self.route('/<int:form_id>/comments', methods=['GET', 'POST'])(self.process_comments)
-        self.route('/<int:form_id>/comments/<int:comment_id>', methods=['GET', 'PUT', 'DELETE'])(self.handle_comment)
-        self.route('/<int:form_id>/proof', methods=['GET', 'POST', 'DELETE'])(self.show_proof)
+        self.route('', methods=['GET'])(self.get_all_swtds)
+        self.route('', methods=['POST'])(self.create_swtd)
+        self.route('/<int:form_id>', methods=['GET'])(self.get_swtd)
+        self.route('/<int:form_id>', methods=['PUT'])(self.update_swtd)
+        self.route('/<int:form_id>', methods=['DELETE'])(self.delete_swtd)
+        self.route('/<int:form_id>/<field_name>', methods=['GET'])(self.get_swtd_property)
+        self.route('/<int:form_id>/comments', methods=['POST'])(self.create_swtd_comment)
+        self.route('/<int:form_id>/comments/<int:comment_id>', methods=['GET'])(self.get_swtd_comment)
+        self.route('/<int:form_id>/comments/<int:comment_id>', methods=['PUT'])(self.update_swtd_comment)
+        self.route('/<int:form_id>/comments/<int:comment_id>', methods=['DELETE'])(self.delete_swtd_comment)
+        self.route('/<int:form_id>/proof', methods=['POST'])(self.add_swtd_proof)
+        self.route('/<int:form_id>/proof/<int:proof_id>', methods=['POST'])(self.show_proof)
+        self.route('/<int:form_id>/proof/<int:proof_id>', methods=['DELETE'])(self.delete_swtd_proof)
 
     @jwt_required()
-    def index(self) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(lambda q, u: q.filter_by(email=email).first())
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+    def get_all_swtds(self) -> Response:
+        requester = self.jwt_service.get_requester()
 
-        if request.method == 'GET':
-            params = {
-                "is_deleted": False,
-                **request.args
-            }
+        params = {"is_deleted": False, **request.args}
 
-            author = self.user_service.get_user(
-                lambda q, u: q.filter_by(id=int(params.get("author_id", 0)), is_deleted=False).first()
-            )
+        author = self.user_service.get_user(lambda q, u: q.filter_by(id=int(params.get("author_id", 0)), is_deleted=False).first())
+        
+        # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
+        if not author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
 
-            is_author = requester == author
-            is_head_of_author = requester == author.department.head
-            
-            # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
-            if not is_head_of_author and not is_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
+        try:
+            if "start_date" in params:
+                params["start_date"] = datetime.strptime(params.get("start_date"), "%m-%d-%Y").date()
+            if "end_date" in params:
+                params["end_date"] = datetime.strptime(params.get("end_date"), "%m-%d-%Y").date()
+        except Exception:
+            raise InvalidDateTimeFormat()
 
-            try:
-                if "start_date" in params:
-                    params["start_date"] = datetime.strptime(params.get("start_date"), "%m-%d-%Y").date()
-                if "end_date" in params:
-                    params["end_date"] = datetime.strptime(params.get("end_date"), "%m-%d-%Y").date()
-            except Exception:
-                raise InvalidDateTimeFormat()
-
-            swtd_forms = self.swtd_service.get_swtd(
-                lambda q, s: q.filter_by(**params)
-            )
-
-            response = {
-                "data": [{
-                    **form.to_dict(),
-                    "author": form.author.to_dict(),
-                    "comments": [{
-                        **c.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, form.comments))],
-                    "proof": [{
-                        **p.to_dict()
-                    } for p in form.proof],
-                    "term": form.term.to_dict(),
-                    "validator": {
-                        **form.validator.to_dict(),
-                        "department": {
-                            **form.validator.department.to_dict(),
-                            "head": form.validator.department.head.to_dict() if form.validator.department.head else None
-                        }
-                    } if form.validator else None
-                } for form in swtd_forms]
-            }
-
-            return self.build_response(response, 200)
-        elif request.method == 'POST':
-            data = request.form
-            required_fields = [
-                "title",
-                "venue",
-                "category",
-                "start_date",
-                "end_date",
-                "total_hours",
-                "points",
-                "benefits",
-                "has_deliverables",
-                "author_id",
-                "term_id"
-            ]
-
-            self.check_fields(data, required_fields)
-
-            files = request.files.getlist('files')
-            if not files:
-                raise MissingRequiredPropertyError("files")
-            
-            term = self.term_service.get_term(
-                lambda q, t: q.filter_by(id=data.get("term_id")).first()
-            )
-            if not term or (term and term.is_deleted):
-                raise TermNotFoundError()
-
-            try:
-                start_date = datetime.strptime(data.get("start_date"), "%m-%d-%Y").date()
-                end_date = datetime.strptime(data.get("end_date"), "%m-%d-%Y").date()
-            except Exception:
-                raise InvalidDateTimeFormat()
-
-            print(type(start_date))
-            print(start_date)
-            print(type(end_date))
-            print(end_date)
-            
-            swtd = self.swtd_service.create_swtd(
-                title=data.get("title"),
-                venue=data.get("venue"),
-                category=data.get("category"),
-                start_date=start_date,
-                end_date=end_date,
-                total_hours=float(data.get("total_hours")),
-                points=float(data.get("points")),
-                benefits=data.get("benefits"),
-                has_deliverables=data.get("has_deliverables").lower() in ("true", "1"),
-                author_id=int(data.get("author_id")),
-                term_id=term.id,
-            )
-
-            for file in files:
-                print(f"Saving file... {file.filename}")
-                self.ft_service.save(requester.id, swtd.id, file)
-                print(f"Saved file to /data/{requester.id}/{swtd.id}/{file.filename}")
-
-            response = {
-                "data": {
-                    **swtd.to_dict(),
-                    "author": swtd.author.to_dict(),
-                    "comments": [{
-                        **c.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, swtd.comments))],
-                    "proof": [{
-                        **p.to_dict()
-                    } for p in swtd.proof],
-                    "term": swtd.term.to_dict(),
-                    "validator": {
-                        **swtd.validator.to_dict(),
-                        "department": {
-                            **swtd.validator.department.to_dict(),
-                            "head": swtd.validator.department.head.to_dict() if swtd.validator.department.head else None
-                        }
-                    } if swtd.validator else None
-                }
-            }
-
-            return self.build_response(response, 200)
+        swtd_forms = self.swtd_service.get_swtd(lambda q, s: q.filter_by(**params).all())
+        return self.build_response({"swtd_forms": [f.to_dict() for f in swtd_forms]}, 200)
 
     @jwt_required()
-    def process_swtd(self, form_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(lambda q, u: q.filter_by(email=email).first())
+    def create_swtd(self, form_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+        data = {**request.form}
+        required_fields = [
+            "title",
+            "venue",
+            "category",
+            "start_date",
+            "end_date",
+            "total_hours",
+            "points",
+            "benefits",
+            "term_id"
+        ]
 
-        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id).first())
-        if not swtd or (swtd and swtd.is_deleted):
-            raise SWTDFormNotFoundError()
+        self.check_fields(data, required_fields)
 
-        if request.method == 'GET':
-            is_author = swtd.author == requester
-            is_head_of_author = requester == swtd.author.department.head
+        files = request.files.getlist('files')
+        if not files: raise MissingRequiredPropertyError("files")
 
-            if not is_head_of_author and not is_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
-            
-            response = {
-                "data": {
-                    **swtd.to_dict(),
-                    "author": swtd.author.to_dict(),
-                    "comments": [{
-                        **c.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, swtd.comments))],
-                    "proof": [{
-                        **p.to_dict()
-                    } for p in swtd.proof],
-                    "term": swtd.term.to_dict(),
-                    "validator": {
-                        **swtd.validator.to_dict(),
-                        "department": {
-                            **swtd.validator.department.to_dict(),
-                            "head": swtd.validator.department.head.to_dict() if swtd.validator.department.head else None
-                        }
-                    } if swtd.validator else None
-                }
-            }
+        term = self.term_service.get_term(lambda q, t: q.filter_by(id=data.get("term_id"), is_deleted=False).first())
+        if not term: raise TermNotFoundError()
 
-            return self.build_response(response, 200)
-        elif request.method == 'PUT':
-            is_author = requester == swtd.author
-            is_head_of_author = requester == swtd.author.department.head
+        try:
+            start_date = datetime.strptime(data.get("start_date"), "%m-%d-%Y").date()
+            end_date = datetime.strptime(data.get("end_date"), "%m-%d-%Y").date()
+        except Exception:
+            raise InvalidDateTimeFormat()
+        
+        swtd = self.swtd_service.create_swtd(
+            title=data.get("title"),
+            venue=data.get("venue"),
+            category=data.get("category"),
+            start_date=start_date,
+            end_date=end_date,
+            total_hours=float(data.get("total_hours")),
+            points=float(data.get("points")),
+            benefits=data.get("benefits"),
+            author_id=requester.id,
+            term_id=term.id,
+        )
 
-            if not is_head_of_author and not is_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot update SWTD form data.")
-            
-            data = {
-                "validation_status": "PENDING",
-                **request.json
-            }
+        for file in files: self.ft_service.save(requester.id, swtd.id, file)
+        return self.build_response({"swtd_form": swtd.to_dict()}, 200)
 
-            try:
-                if "start_date" in data:
-                    data["start_date"] = datetime.strptime(data.get("start_date"), "%m-%d-%Y")
-                if "end_date" in data:
-                    data["end_date"] = datetime.strptime(data.get("end_date"), "%m-%d-%Y")
-            except Exception:
-                raise InvalidDateTimeFormat()
+    @jwt_required()
+    def get_swtd(self, form_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-            if "validation_status" in data and data.get("validation_status") != "PENDING":
-                if not "validator_id" in data:
-                    raise MissingRequiredPropertyError("validator_id")
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
 
-                validator = self.user_service.get_user(
-                    lambda q, u: q.filter_by(id=data.get("validator_id"), is_deleted=False).first()
-                )
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
 
-                if not validator:
-                    raise UserNotFoundError()
+        return self.build_response({"swtd_form": swtd.to_dict()}, 200)
 
-                data["date_validated"] = datetime.now()
+    @jwt_required()
+    def update_swtd(self, form_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-            if "term_id" in data:
-                term = self.term_service.get_term(
-                    lambda q, t: q.filter_by(id=data.get("term_id"), is_deleted=False).first()
-                )
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
 
-                if not term:
-                    raise TermNotFoundError()
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot update SWTD form data.")
+        
+        data = {"validation_status": "PENDING", **request.json}
 
-            swtd = self.swtd_service.update_swtd(swtd, **data)
+        try:
+            if "start_date" in data:
+                data["start_date"] = datetime.strptime(data.get("start_date"), "%m-%d-%Y")
+            if "end_date" in data:
+                data["end_date"] = datetime.strptime(data.get("end_date"), "%m-%d-%Y")
+        except Exception:
+            raise InvalidDateTimeFormat()
 
-            response = {
-                "data": {
-                    **swtd.to_dict(),
-                    "author": swtd.author.to_dict(),
-                    "comments": [{
-                        **c.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, swtd.comments))],
-                    "proof": [{
-                        **p.to_dict()
-                    } for p in swtd.proof],
-                    "term": swtd.term.to_dict(),
-                    "validator": {
-                        **swtd.validator.to_dict(),
-                        "department": {
-                            **swtd.validator.department.to_dict(),
-                            "head": swtd.validator.department.head.to_dict() if swtd.validator.department.head else None
-                        }
-                    } if swtd.validator else None
-                }
-            }
+        if "validation_status" in data and data.get("validation_status") != "PENDING":
+            if not "validator_id" in data:
+                raise MissingRequiredPropertyError("validator_id")
 
-            return self.build_response(response, 200)
-        elif request.method == 'DELETE':
-            is_author = requester == swtd.author
-            is_head_of_author = requester == swtd.author.department.head
+            validator = self.user_service.get_user(lambda q, u: q.filter_by(id=data.get("validator_id"), is_deleted=False).first())
 
-            if not is_head_of_author and not is_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot delete SWTD form.")
-            
-            self.swtd_service.delete_swtd(swtd)
-            return self.build_response({"message": "SWTD Form deleted."}, 200)
+            if not validator: raise UserNotFoundError()
+            data["date_validated"] = datetime.now()
+
+        if "term_id" in data:
+            term = self.term_service.get_term(lambda q, t: q.filter_by(id=data.get("term_id"), is_deleted=False).first())
+            if not term: raise TermNotFoundError()
+
+        swtd = self.swtd_service.update_swtd(swtd, **data)
+        return self.build_response({"swtd_form": swtd.to_dict()}, 200)
+
+    @jwt_required()
+    def delete_swtd(self, form_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
+
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
+
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot delete SWTD form.")
+        
+        self.swtd_service.delete_swtd(swtd)
+        return self.build_response({"message": "SWTD Form deleted."}, 200)
+
+    @jwt_required()
+    def get_swtd_property(self, form_id: int, field_name: str) -> Response:
+        requester = self.jwt_service.get_requester()
+        
+        swtd = self.swtd_service.get_swtd(lambda q, t: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
+
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            raise InsufficientPermissionsError(f"Cannot retreive data for SWTDForm {field_name}.")
+        
+        prop = getattr(swtd, field_name, None)
+        use_list = isinstance(prop, list)
+
+        response = {}
+        try:
+            response[field_name] = [o.to_dict() for o in prop] if use_list else prop.to_dict()
+        except AttributeError:
+            if isinstance(prop, datetime):
+                response[field_name] = prop.strftime("%m-%d-%Y %H:%M")
+            elif isinstance(prop, date):
+                response[field_name] = prop.strftime("%m-%d-%Y")
+            else:
+                response[field_name] = prop
+
+        return self.build_response(response, 200)
+
+    @jwt_required()
+    def create_swtd_comment(self, form_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
+
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
+
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot add an SWTD form comment.")
+
+        data = {**request.json, "author_id": requester.id, "swtd_id": swtd.id}
+        required_fields = ['message']
+
+        self.check_fields(data, required_fields)
+        
+        comment = self.swtd_comment_service.create_comment(**data)
+        return self.build_response({"comment": comment.to_dict()}, 200)
+
+    @jwt_required()
+    def get_swtd_comment(self, form_id: int, comment_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
+        
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
+
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            raise InsufficientPermissionsError("Cannot get SWTDForm comment data.")
+        
+        comment = self.swtd_comment_service.get_comment(lambda q, c: q.filter_by(id=comment_id, is_deleted=False).first())
+        if not comment or comment not in swtd.comments: raise SWTDCommentNotFoundError()
+
+        return self.build_response({"comment": comment.to_dict()}, 200)
+
+    @jwt_required()
+    def update_swtd_comment(self, form_id: int, comment_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
+
+        data = {**request.json}
+        if "message" not in data: raise MissingRequiredPropertyError("message")
+        
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
+
+        comment = self.swtd_comment_service.get_comment(lambda q, c: q.filter_by(id=comment_id, is_deleted=False).first())
+        if not comment or comment not in swtd.comments: raise SWTDCommentNotFoundError()
+
+        if requester != comment.author:
+            raise InsufficientPermissionsError("Cannot update comment data.")
+        
+        comment = self.swtd_comment_service.update_comment(comment, **data)
+        return self.build_response({"comment": comment.to_dict()}, 200)
     
     @jwt_required()
-    def process_comments(self, form_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=email).first()
-        )
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+    def delete_swtd_comment(self, form_id: int, comment_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-        swtd = self.swtd_service.get_swtd(
-            lambda q, s: q.filter_by(id=form_id).first()
-        )
-        if not swtd or (swtd and swtd.is_deleted):
-            raise SWTDFormNotFoundError()
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
 
-        if request.method == 'GET':
-            is_author = requester == swtd.author
-            is_head_of_author = requester == swtd.author.department.head
+        comment = self.swtd_comment_service.get_comment(lambda q, c: q.filter_by(id=comment_id, is_deleted=False).first())
+        if not comment or comment not in swtd.comments: raise SWTDCommentNotFoundError()
 
-            if not is_author and not is_head_of_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve SWTD form comments.")
-
-            params = {
-                "is_deleted": False,
-                "swtd_id": swtd.id,
-                **request.args
-            }
-
-            comments = self.swtd_comment_service.get_comment(
-                lambda q, c: q.filter_by(**params).all()
-            )
-
-            return self.build_response({
-                "data": [{
-                    **comment.to_dict(),
-                    "author": comment.author.to_dict()
-                } for comment in comments]
-            }, 200)
-        if request.method == 'POST':
-            is_author = requester == swtd.author
-            is_head_of_author = requester == swtd.author.department.head
-
-            if not is_author and not is_head_of_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot add an SWTD form comment.")
-
-            data = {
-                **request.json,
-                "author_id": requester.id,
-                "swtd_id": form_id
-            }
-            required_fields = ['message']
-
-            self.check_fields(data, required_fields)
-            
-            comment = self.swtd_comment_service.create_comment(**data)
-            return self.build_response({
-                "data": {
-                    **comment.to_dict(),
-                    "author": comment.author.to_dict()
-                }
-            }, 200)
+        if requester != comment.author:
+            raise InsufficientPermissionsError("Cannot delete comment.")
+        
+        comment = self.swtd_comment_service.delete_comment(comment)
+        return self.build_response({"message": "Comment deleted."}, 200)
     
     @jwt_required()
-    def handle_comment(self, form_id: int, comment_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(lambda q, u: q.filter_by(email=email).first())
+    def add_swtd_proof(self, form_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).ifrst())
+        if not swtd: raise SWTDFormNotFoundError()
 
-        swtd = self.swtd_service.get_swtd(lambda q, t: q.filter_by(id=form_id).first())
-        if not swtd or (swtd and swtd.is_deleted):
-            raise SWTDFormNotFoundError()
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot add SWTD form proof.")
         
-        comment = self.swtd_comment_service.get_comment(lambda q, c: q.filter_by(id=comment_id).first())
-        if not comment or (comment and comment.is_deleted):
-            raise SWTDCommentNotFoundError()
-        
-        if request.method == 'GET':
-            is_author = requester == swtd.author
-            is_head_of_author = requester == swtd.author.department.head
+        files = request.files.getlist('files')
+        if not files: raise MissingRequiredPropertyError("files")
 
-            if not is_author and not is_head_of_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve SWTD form comment.")
-            
-            return self.build_response({
-                "data": {
-                    **comment.to_dict(),
-                    "author": comment.author.to_dict()
-                }
-            }, 200)
-        if request.method == 'PUT':
-            is_author = requester == comment.author
+        proofs = []
+        for file in files:
+            proof = self.ft_service.save(requester.id, swtd.id, file)
+            proofs.append(proof)
 
-            if not is_author:
-                raise InsufficientPermissionsError("Cannot update SWTD form comment.")
+        swtd = self.swtd_service.update_swtd(swtd, validation_status="PENDING")
 
-            data = {**request.json}
-
-            self.swtd_comment_service.update_comment(comment, **data)
-            return redirect(url_for('swtd.process_swtd', form_id=swtd.id), code=303)
-        if request.method == 'DELETE':
-            is_author = requester == comment.author
-            is_head_of_author = requester == swtd.author.department.head
-
-            if not is_author and not is_head_of_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot delete SWTD form comment.")
-            
-            self.swtd_comment_service.delete_comment(comment)
-            return self.build_response({"message": "Comment deleted."}, 200)
+        return self.build_response({"proof": [p.to_dict() for p in proofs]}, 200)
   
     @jwt_required()
-    def show_proof(self, form_id: int) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        requester = self.user_service.get_user(lambda q, u: q.filter_by(email=email).first())
+    def show_proof(self, form_id: int, proof_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-        if not requester or (requester and requester.is_deleted):
-            raise AuthenticationError()
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
 
-        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id).first())
-        if not swtd or (swtd and swtd.is_deleted):
-            raise SWTDFormNotFoundError()
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot retrieve SWTD form proof.")
 
-        if request.method == 'GET':
-            is_author = requester == swtd.author
-            is_head_of_author = requester == swtd.author.department.head
+        proof = self.ft_service.get_proof(lambda q, p: q.filter_by(id=proof_id).first())
+        if not proof: raise ProofNotFoundError()
 
-            if not is_author and not is_head_of_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve SWTD form proof.")
+        with open(proof.path, 'rb') as f: content = f.read()
+        return Response(content, mimetype=proof.content_type, status=200)
+       
+    @jwt_required()
+    def delete_swtd_proof(self, form_id: int, proof_id: int) -> Response:
+        requester = self.jwt_service.get_requester()
 
-            params = {**request.args}
-            required_fields = ['id']
-            self.check_fields(params, required_fields)
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
+        if not swtd: raise SWTDFormNotFoundError()
 
-            proof = self.ft_service.get_proof(lambda q, p: q.filter_by(id=params.get("id")).first())
-            if not proof:
-                raise ProofNotFoundError()
+        if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise InsufficientPermissionsError("Cannot delete SWTD form proof.")
 
-            with open(proof.path, 'rb') as f:
-                content = f.read()
+        proof = self.ft_service.get_proof(lambda q, p: q.filter_by(id=proof_id).first())
+        if not proof: raise ProofNotFoundError()
 
-            return Response(content, mimetype=proof.content_type, status=200)
-        if request.method == 'POST':
-            is_author = requester == swtd.author
-            is_head_of_author = requester == swtd.author.department.head
+        if proof not in swtd.proof: raise InsufficientPermissionsError("Cannot delete proof of other SWTDs")
 
-            if not is_author and not is_head_of_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot add SWTD form proof.")
-            
-            files = request.files.getlist('files')
-            if not files:
-                raise MissingRequiredPropertyError("files")
+        self.ft_service.delete_proof(proof)
+        self.swtd_service.update_swtd(swtd, validation_status="PENDING")
 
-            for file in files:
-                self.ft_service.save(requester.id, swtd.id, file)
-
-            self.swtd_service.update_swtd(swtd, validation_status="PENDING")
-            
-            response = {
-                "data": {
-                    **swtd.to_dict(),
-                    "author": swtd.author.to_dict(),
-                    "comments": [{
-                        **c.to_dict()
-                    } for c in list(filter(lambda c: c.is_deleted == False, swtd.comments))],
-                    "proof": [{
-                        **p.to_dict()
-                    } for p in swtd.proof],
-                    "term": swtd.term.to_dict(),
-                    "validator": {
-                        **swtd.validator.to_dict(),
-                        "department": {
-                            **swtd.validator.department.to_dict(),
-                            "head": swtd.validator.department.head.to_dict() if swtd.validator.department.head else None
-                        }
-                    } if swtd.validator else None
-                }
-            }
-
-            return self.build_response(response, 200)
-        if request.method == "DELETE":
-            is_author = requester == swtd.author
-            is_head_of_author = requester == swtd.author.department.head
-
-            if not is_author and not is_head_of_author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot delete SWTD form proof.")
-
-            params = {**request.args}
-            required_fields = ['id']
-            self.check_fields(params, required_fields)
-
-            proof = self.ft_service.get_proof(lambda q, p: q.filter_by(id=params.get("id")).first())
-            if not proof:
-                raise ProofNotFoundError()
-
-            if proof not in swtd.proof:
-                raise InsufficientPermissionsError("Cannot delete proof of other SWTDs")
-
-            self.ft_service.delete_proof(proof)
-            self.swtd_service.update_swtd(swtd, validation_status="PENDING")
-            
-            return redirect(url_for('swtd.process_swtd', form_id=swtd.id), code=303)
+        return self.build_response({"message": "Proof deleted."}, 200)
 
 def setup(app: Flask) -> None:
     app.register_blueprint(SWTDController('swtd', __name__, url_prefix='/swtds'))

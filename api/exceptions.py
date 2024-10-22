@@ -3,6 +3,7 @@ class AccountUnavailableError(Exception):
 
 class AuthenticationError(Exception):
     pass
+
 class DuplicateValueError(Exception):
     def __init__(self, name):
         super().__init__()
@@ -53,4 +54,7 @@ class UserNotFoundError(Exception):
     pass
 
 class ProofNotFoundError(Exception):
+    pass
+
+class ClearingNotFoundError(Exception):
     pass
