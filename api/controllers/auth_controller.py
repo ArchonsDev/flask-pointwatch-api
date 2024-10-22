@@ -86,7 +86,7 @@ class AuthController(Blueprint, BaseController):
             raise AuthenticationError()
 
         response = {
-            "data": user.to_dict(),
+            "user": user.to_dict(),
             "access_token": self.jwt_service.generate_token(user.email)
         }
 

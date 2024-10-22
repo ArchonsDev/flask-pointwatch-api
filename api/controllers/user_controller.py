@@ -148,7 +148,7 @@ class UserController(Blueprint, BaseController):
         if not user: raise UserNotFoundError()
 
         # Ensure that the requester has permission.
-        if not requester.is_head_of(user) and not requester != user and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+        if not requester.is_head_of(user) and requester != user and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
             raise InsufficientPermissionsError("Cannot retrieve user data.")
         
         if not hasattr(user, field_name): raise ResourceNotFoundError()
@@ -187,9 +187,9 @@ class UserController(Blueprint, BaseController):
         if not requester.is_head_of(user) and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
             raise InsufficientPermissionsError("Cannot grant user clearance")
         
-        self.user_service.grant_clearance(requester, user, term)
+        clearance = self.user_service.grant_clearance(requester, user, term)
 
-        return redirect(url_for('user.get_user_property', user_id=user.id, field_name='clearance'), 303)
+        return self.build_response({"clearance": clearance.to_dict()}, 200)
     
     @jwt_required()
     def revoke_user_clearance(self, user_id: int) -> Response:
@@ -210,7 +210,7 @@ class UserController(Blueprint, BaseController):
         
         self.user_service.revoke_clearance(user, term)
 
-        return redirect(url_for('user.get_user_property', user_id=user.id, field_name='clearance'), 303)
+        return self.build_response({"message": "Clearance revoked."}, 200)
 
 def setup(app: Flask) -> None:
     app.register_blueprint(UserController('user', __name__, url_prefix='/users'))

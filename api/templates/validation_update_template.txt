@@ -11,7 +11,7 @@ Validation Information
     Date: {validation_date}
     By: {validator_name}
 
-For more information on this SWTD Form, visit the link: {app_url}/swtds/{swtd_id}
+For more information on this SWTD Form, visit the link: {app_url}/swtds/all/{swtd_id}
 
 If this has been a mistake, please contact your department head immediately.
 
