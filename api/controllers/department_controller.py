@@ -154,6 +154,9 @@ class DepartmentController(Blueprint, BaseController):
 
         response = {}
         try:
+            if use_list:
+                prop = list(filter(lambda i: hasattr(i, 'is_deleted') and i.is_deleted == False, prop))
+
             response[field_name] = [o.to_dict() for o in prop] if use_list else prop.to_dict()
         except AttributeError:
             if isinstance(prop, datetime):
