@@ -24,7 +24,7 @@ class Department(db.Model):
     head_id = db.Column(db.Integer, db.ForeignKey("tblusers.id"), unique=True)
 
     # Relationships
-    head = db.relationship("User", secondary=department_head, back_populates="headed_department", cascade='save-update, delete, delete-orphan', uselist=False, lazy=True)
+    head = db.relationship("User", secondary=department_head, back_populates="headed_department", uselist=False, lazy=True)
     members = db.relationship("User", foreign_keys="User.department_id", back_populates="department", lazy=True)
 
     @property
