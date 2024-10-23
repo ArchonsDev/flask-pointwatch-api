@@ -34,13 +34,6 @@ class DepartmentService(object):
         for key, value in data.items():
             if not hasattr(department, key):
                 raise InvalidParameterError(key)
-            
-            if (key == "head" and value is None) or (key == "head_id" and value == 0):
-                self.db.session.execute(
-                    delete(department_head).where(
-                        (department_head.c.user_id == department.head.id) & (department_head.c.department_id == department.id)
-                    )
-                )
 
             setattr(department, key, value)
 
