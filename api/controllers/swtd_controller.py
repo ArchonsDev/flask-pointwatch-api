@@ -264,7 +264,7 @@ class SWTDController(Blueprint, BaseController):
 
         allowed_fields = ["message"]
         data = {**request.json}
-        if not all(key in allowed_fields for key in data.items()):
+        if not all(key in allowed_fields for key in data.keys()):
             raise InvalidParameterError()
 
         if "message" not in data: raise MissingRequiredParameterError("message")
