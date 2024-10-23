@@ -6,17 +6,20 @@ from sqlalchemy.orm import Query
 
 from ..models.clearing import Clearing
 
+from ..exceptions.validation import InvalidParameterError
+
 class ClearingService(object):
     def __init__(self, db: SQLAlchemy) -> None:
         self.db = db
 
     def create_clearing(self, **data: dict[str, Any]) -> Clearing:
-        clearing = Clearing(
-            user_id=data.get("user_id"),
-            term_id=data.get("term_id"),
-            clearer_id=data.get("clearer_id"),
-            applied_points=data.get("applied_points")
-        )
+        clearing = Clearing()
+
+        for key, value in data.items():
+            if not hasattr(Clearing, key):
+                raise InvalidParameterError(key)
+            
+            setattr(clearing, key, value)
 
         self.db.session.add(clearing)
         self.db.session.commit()
@@ -26,21 +29,11 @@ class ClearingService(object):
         return filter_func(Clearing.query, Clearing)
 
     def update_clearing(self, clearing: Clearing, **data: dict[str, Any]) -> Clearing:
-        allowed_fields = [
-            "user_id",
-            "term_id",
-            "clearer_id",
-            "is_deleted",
-            "applied_points"
-        ]
+        for key, value in data.items():
+            if not hasattr(clearing, key, value):
+                raise InvalidParameterError(key)
 
-        for field in allowed_fields:
-            value = data.get(field)
-
-            if value is None:
-                continue
-
-            setattr(clearing, field, value)
+            setattr(clearing, key, value)
 
         clearing.date_modified = datetime.now()
         self.db.session.commit()

@@ -6,16 +6,20 @@ from sqlalchemy.orm import Query
 
 from ..models.swtd_comment import SWTDComment
 
+from ..exceptions.validation import InvalidParameterError
+
 class SWTDCommentService:
     def __init__(self, db: SQLAlchemy) -> None:
         self.db = db
 
-    def create_comment(self,**data: dict[str, Any]) -> None:
-        comment = SWTDComment(
-            author_id=data.get("author_id"),
-            swtd_id=data.get("swtd_id"),
-            message=data.get("message")
-        )
+    def create_comment(self, **data: dict[str, Any]) -> None:
+        comment = SWTDComment()
+
+        for key, value in data.items():
+            if not hasattr(comment, key):
+                raise InvalidParameterError(key)
+            
+            setattr(comment, key, value)
 
         self.db.session.add(comment)
         self.db.session.commit()
@@ -25,20 +29,11 @@ class SWTDCommentService:
         return filter_func(SWTDComment.query, SWTDComment)
 
     def update_comment(self, comment: SWTDComment, **data: dict[str, Any]) -> None:
-        allowed_fields = [
-            "message",
-            "author_id",
-            "swtd_id",
-            "is_deleted"
-        ]
-
-        for field in allowed_fields:
-            value = data.get(field)
-
-            if value is None:
-                continue
-
-            setattr(comment, field, value)
+        for key, value in data.items():
+            if not hasattr(comment, key):
+                raise InvalidParameterError(key)
+            
+            setattr(comment, key, value)
 
         comment.date_modified = datetime.now()
         self.db.session.commit()

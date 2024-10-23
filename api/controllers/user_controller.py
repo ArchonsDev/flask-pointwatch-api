@@ -1,12 +1,16 @@
 from typing import Any
 from datetime import datetime, date
 
-from flask import Blueprint, request, Response, Flask, redirect, url_for
+from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
-from ..services import jwt_service, user_service, auth_service, term_service, ft_service, department_service
-from ..exceptions import ResourceNotFoundError, InsufficientPermissionsError, UserNotFoundError, TermNotFoundError, MissingRequiredPropertyError, DepartmentNotFoundError
+
+from ..services import jwt_service, user_service, auth_service, term_service, ft_service, department_service, password_encoder_service
+
+from ..exceptions.authorization import AuthorizationError
+from ..exceptions.resource import ResourceNotFoundError, UserNotFoundError, DepartmentNotFoundError, TermNotFoundError
+from ..exceptions.validation import MissingRequiredParameterError, InvalidParameterError
 
 class UserController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -18,6 +22,7 @@ class UserController(Blueprint, BaseController):
         self.term_service = term_service
         self.ft_service = ft_service
         self.department_service = department_service
+        self.password_encoder_service = password_encoder_service
 
         self.map_routes()
 
@@ -36,9 +41,8 @@ class UserController(Blueprint, BaseController):
     def get_all_users(self) -> Response:
         requester = self.jwt_service.get_requester()
 
-        # Ensure that the requester has permissions.
         if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot retrieve user list.")
+            raise AuthorizationError("Cannot retrieve user list.")
 
         params = {"is_deleted": False, **request.args}
 
@@ -50,12 +54,10 @@ class UserController(Blueprint, BaseController):
         requester = self.jwt_service.get_requester()
         
         user = self.user_service.get_user(lambda q, u: q.filter_by(id=user_id, is_deleted=False).first())
-        # Ensure that the target exists.
         if not user: raise UserNotFoundError()
 
-        # Ensure that the requester has permission.
         if requester != user and not requester.is_head_of(user) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot retrieve user data.")
+            raise AuthorizationError("Cannot retrieve user data.")
 
         return self.build_response({"user": user.to_dict()}, 200)
     
@@ -64,25 +66,43 @@ class UserController(Blueprint, BaseController):
         requester = self.jwt_service.get_requester()
 
         user = self.user_service.get_user(lambda q, u: q.filter_by(id=user_id, is_deleted=False).first())
-        # Ensure that the target exists.
         if not user: raise UserNotFoundError()
 
-        # Ensure that the requester has the required permission.
         if requester != user and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot update user data.")
+            raise AuthorizationError("Cannot update user data.")
 
+        allowed_fields = [
+            'is_deleted',
+            'password',
+            'firstname',
+            'lastname',
+            'point_balance',
+            'is_ms_linked',
+            'access_level',
+            'department_id'
+        ]
         data = {**request.json}
+        if not all(key in allowed_fields for key in data.keys()):
+            raise InvalidParameterError()
+        
+        if 'is_deleted' in data and not self.auth_service.has_permissions(minimum_auth="staff"):
+            raise AuthorizationError("Cannot update account activation state.")
+        
+        if 'password' in data:
+            data['password'] = self.password_encoder_service.encode_password(data.get('password'))
 
         if 'point_balance' in data and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot update user point balance.")
+            raise AuthorizationError("Cannot update user point balance.")
 
         if 'access_level' in data and not requester.is_staff and not self.auth_service.has_permissions(requester, 'custom', data.get('access_level', 0) + 1):
-            raise InsufficientPermissionsError("Cannot update user access level.")
+            raise AuthorizationError("Cannot update user access level.")
         
         if 'department_id' in data:
-            department = self.department_service.get_department(lambda q, d: q.filter_by(id=data.get("department_id")).first())
+            department_id = data.pop("department_id")
+            department = self.department_service.get_department(lambda q, d: q.filter_by(id=department_id, is_deleted=False).first())
             if not department: raise DepartmentNotFoundError()
-        
+            data["department"] = department
+
         user = self.user_service.update_user(user, **data)
         return self.build_response({"user": user.to_dict()}, 200)
     
@@ -95,7 +115,7 @@ class UserController(Blueprint, BaseController):
         if not user: raise UserNotFoundError()
 
         if requester != user and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot delete user.")
+            raise AuthorizationError("Cannot delete user.")
 
         self.user_service.delete_user(user)
         return self.build_response({"message": "User deleted."}, 200)
@@ -111,10 +131,10 @@ class UserController(Blueprint, BaseController):
         if request.method == 'GET':
             # Ensure that the requester has permission.
             if requester != user and not requester.is_head_of(user) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise InsufficientPermissionsError("Cannot retrieve user points.")
+                raise AuthorizationError("Cannot retrieve user points.")
             
             term_id = int(request.args.get('term_id', 0))
-            if not term_id: raise MissingRequiredPropertyError('term_id')
+            if not term_id: raise MissingRequiredParameterError('term_id')
             
             term = self.term_service.get_term(lambda q, t: q.filter_by(id=term_id, is_deleted=False).first())
             if not term: raise TermNotFoundError()
@@ -130,7 +150,7 @@ class UserController(Blueprint, BaseController):
         if not user: raise UserNotFoundError()
         
         if requester != user and not self.auth_service.has_permissions(requester, minimum_auth='head'):
-            raise InsufficientPermissionsError("Cannot export user SWTD data.")
+            raise AuthorizationError("Cannot export user SWTD data.")
 
         content = self.ft_service.export_for_employee(requester, user)
 
@@ -149,7 +169,7 @@ class UserController(Blueprint, BaseController):
 
         # Ensure that the requester has permission.
         if not requester.is_head_of(user) and requester != user and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot retrieve user data.")
+            raise AuthorizationError("Cannot retrieve user data.")
         
         if not hasattr(user, field_name): raise ResourceNotFoundError()
 
@@ -176,7 +196,7 @@ class UserController(Blueprint, BaseController):
 
         data = {**request.json}
 
-        if "term_id" not in data: raise MissingRequiredPropertyError("term_id")
+        if "term_id" not in data: raise MissingRequiredParameterError("term_id")
 
         user = self.user_service.get_user(lambda q, u: q.filter_by(id=user_id, is_deleted=False).first())
         if not user: raise UserNotFoundError()
@@ -185,7 +205,7 @@ class UserController(Blueprint, BaseController):
         if not term: raise TermNotFoundError()
 
         if not requester.is_head_of(user) and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError("Cannot grant user clearance")
+            raise AuthorizationError("Cannot grant user clearance")
         
         clearance = self.user_service.grant_clearance(requester, user, term)
 
@@ -197,7 +217,7 @@ class UserController(Blueprint, BaseController):
 
         params = {**request.args}
 
-        if "term_id" not in params: raise MissingRequiredPropertyError("term_id")
+        if "term_id" not in params: raise MissingRequiredParameterError("term_id")
 
         user = self.user_service.get_user(lambda q, u: q.filter_by(id=user_id, is_deleted=False).first())
         if not user: raise UserNotFoundError()
@@ -206,7 +226,7 @@ class UserController(Blueprint, BaseController):
         if not term: raise TermNotFoundError()
 
         if not requester.is_head_of(user) and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError("Cannot revoke user clearance.")
+            raise AuthorizationError("Cannot revoke user clearance.")
         
         self.user_service.revoke_clearance(user, term)
 

@@ -2,8 +2,12 @@ from typing import Any
 from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
-from ..services import auth_service, user_service, jwt_service, password_encoder_service, mail_service
-from ..exceptions import DuplicateValueError, UserNotFoundError, AccountUnavailableError, AuthenticationError
+from ..services import auth_service, user_service, jwt_service, password_encoder_service, mail_service, department_service
+
+from ..exceptions.authentication import AuthenticationError
+from ..exceptions.resource import UserNotFoundError, DepartmentNotFoundError
+from ..exceptions.conflct import UserAlreadyExistsError
+
 from .base_controller import BaseController
 
 class AuthController(Blueprint, BaseController):
@@ -15,6 +19,7 @@ class AuthController(Blueprint, BaseController):
         self.jwt_service = jwt_service
         self.password_encoder_service = password_encoder_service
         self.mail_service = mail_service
+        self.department_service = department_service
 
         self.map_routes()
 
@@ -25,33 +30,33 @@ class AuthController(Blueprint, BaseController):
         self.route('/resetpassword', methods=['POST'])(self.reset_password)
 
     def create_account(self) -> Response:
-        data = request.json
-        # Define required fields
         required_fields = [
             'employee_id',
             'email',
             'firstname',
             'lastname',
-            'password'
+            'password',
+            'department_id'
         ]
-        # Ensure the required fields are present.
+        data = {**request.json}
         self.check_fields(data, required_fields)
         
-        existing_user = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=data.get('email')).first()
-        )
-        # Ensure that the email provided is not in use.
-        if existing_user:
-            raise DuplicateValueError('email')
+        existing_user = self.user_service.get_user(lambda q, u: q.filter_by(email=data.get('email')).first())
+        if existing_user: raise UserAlreadyExistsError("Email in use.")
         
-        existing_user = self.user_service.get_user(
-            lambda q, u: q.filter_by(employee_id=data.get('employee_id')).first()
-        )
-        # Ensure that the employee ID provided is not in use.
-        if existing_user:
-            raise DuplicateValueError('employee_id')
+        existing_user = self.user_service.get_user(lambda q, u: q.filter_by(employee_id=data.get('employee_id')).first())
+        if existing_user: raise UserAlreadyExistsError("Employee ID in use.")
 
-        user = self.user_service.create_user(**data)
+        department = self.department_service.get_department(lambda q, d: q.filter_by(id=data.get('department_id'), is_deleted=False).first())
+        if not department: raise DepartmentNotFoundError()
+
+        user = self.user_service.create_user(
+            employee_id=data.get('employee_id'),
+            email=data.get('email'),
+            firstname=data.get('firstname'),
+            lastname=data.get('lastname'),
+            password=self.password_encoder_service.encode_password(data.get('password'))
+        )
 
         response = {
             "user": user.to_dict(),
@@ -61,75 +66,48 @@ class AuthController(Blueprint, BaseController):
         return self.build_response(response, 200)
 
     def login(self) -> Response:
-        data = request.json
-        # Define required fields
         required_fields = [
             'email',
             'password',
         ]
-
+        data = {**request.json}
         self.check_fields(data, required_fields)
 
-        # Ensure that the user exists.
-        user = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=data.get('email')).first()
-        )
-        if not user:
-            raise UserNotFoundError()
-        
-        if user.is_deleted:
-            raise AccountUnavailableError()
+        user = self.user_service.get_user(lambda q, u: q.filter_by(email=data.get('email'), is_deleted=False).first())
+        if not user: raise UserNotFoundError()
         
         token = self.auth_service.login(user, data.get('password'))
-        # Ensure that the token exists.
-        if not token:
-            raise AuthenticationError()
+        if not token: raise AuthenticationError()
 
         response = {
             "user": user.to_dict(),
-            "access_token": self.jwt_service.generate_token(user.email)
+            "access_token": token
         }
 
         return self.build_response(response, 200)
 
     def recover_account(self) -> Response:
-        data = request.json
-        # Define required fields
-        required_fields = [
-            'email',
-        ]
+        required_fields = ['email']
+        data = {**request.json}
 
-        # Ensure required fields are present.
         self.check_fields(data, required_fields)
-        # Check if the email is registered to a user.
-        user = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=data.get("email"), is_deleted=False).first()
-        )
-        if user:
-            self.mail_service.send_recovery_mail(user.email, user.firstname)
+
+        user = self.user_service.get_user(lambda q, u: q.filter_by(email=data.get("email"), is_deleted=False).first())
+        if user: self.mail_service.send_recovery_mail(user.email, user.firstname)
 
         return self.build_response({"message": "Please check email for instructions on how to reset your password."}, 200)
 
     @jwt_required()
     def reset_password(self) -> Response:
-        email = self.jwt_service.get_identity_from_token()
-        data = request.json
-        # Define required fields
-        required_fields = [
-            'password',
-        ]
+        requester = self.jwt_service.get_requester()
+        required_fields = ['password']
+        data = {**request.json}
 
-        # Ensure that the required fields are present.
         self.check_fields(data, required_fields)
 
-        user = self.user_service.get_user(
-            lambda q, u: q.filter_by(email=email).first()
-        )
-        # Ensure that the user exists.
-        if not user or (user and user.is_deleted):
-            raise UserNotFoundError()
-        
-        self.user_service.update_user(user, password=data.get("password"))
+        password = self.password_encoder_service.encode_password(data.get('password'))
+
+        self.user_service.update_user(requester, password=password)
         return self.build_response({"message": "Password changed."}, 200)
 
 def setup(app: Flask) -> None:

@@ -1,12 +1,16 @@
 from typing import Any
 from datetime import datetime, date
 
-from flask import Blueprint, request, Response, Flask, redirect, url_for
+from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
+
+from ..exceptions.authorization import AuthorizationError
+from ..exceptions.resource import SWTDFormNotFoundError, UserNotFoundError, TermNotFoundError, SWTDCommentNotFoundError, ProofNotFoundError
+from ..exceptions.validation import MissingRequiredParameterError, InvalidDateTimeFormat, InvalidParameterError
+
 from ..services import swtd_service, jwt_service, user_service, auth_service, ft_service, swtd_comment_service, term_service
-from ..exceptions import InsufficientPermissionsError, InvalidDateTimeFormat, SWTDFormNotFoundError, MissingRequiredPropertyError, SWTDCommentNotFoundError, TermNotFoundError, AuthenticationError, ProofNotFoundError, UserNotFoundError
 
 class SWTDController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -47,7 +51,7 @@ class SWTDController(Blueprint, BaseController):
         
         # Ensure that a non-staff/admin/superuser requester can only request SWTD Forms they are the author of.
         if not author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot retrieve SWTD Forms.")
+            raise AuthorizationError("Cannot retrieve SWTD Forms.")
 
         try:
             if "start_date" in params:
@@ -61,7 +65,7 @@ class SWTDController(Blueprint, BaseController):
         return self.build_response({"swtd_forms": [f.to_dict() for f in swtd_forms]}, 200)
 
     @jwt_required()
-    def create_swtd(self, form_id: int) -> Response:
+    def create_swtd(self) -> Response:
         requester = self.jwt_service.get_requester()
 
         data = {**request.form}
@@ -80,7 +84,7 @@ class SWTDController(Blueprint, BaseController):
         self.check_fields(data, required_fields)
 
         files = request.files.getlist('files')
-        if not files: raise MissingRequiredPropertyError("files")
+        if not files: raise MissingRequiredParameterError("files")
 
         term = self.term_service.get_term(lambda q, t: q.filter_by(id=data.get("term_id"), is_deleted=False).first())
         if not term: raise TermNotFoundError()
@@ -100,8 +104,8 @@ class SWTDController(Blueprint, BaseController):
             total_hours=float(data.get("total_hours")),
             points=float(data.get("points")),
             benefits=data.get("benefits"),
-            author_id=requester.id,
-            term_id=term.id,
+            author=requester,
+            term=term
         )
 
         for file in files: self.ft_service.save(requester.id, swtd.id, file)
@@ -115,7 +119,7 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot retrieve SWTD form data.")
+            raise AuthorizationError("Cannot retrieve SWTD form data.")
 
         return self.build_response({"swtd_form": swtd.to_dict()}, 200)
 
@@ -127,9 +131,28 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot update SWTD form data.")
+            raise AuthorizationError("Cannot update SWTD form data.")
         
+        allowed_fields = [
+            'is_deleted',
+            'title',
+            'venue',
+            'category',
+            'start_date',
+            'end_date',
+            'total_hours',
+            'points',
+            'benefits',
+            'validation_status',
+            'term_id'
+        ]
         data = {"validation_status": "PENDING", **request.json}
+
+        if not all(key in allowed_fields for key in data.keys()):
+            raise InvalidParameterError()
+        
+        if 'is_deleted' in data and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+            raise AuthorizationError("Cannot change SWTDForm deletion state.")
 
         try:
             if "start_date" in data:
@@ -139,14 +162,22 @@ class SWTDController(Blueprint, BaseController):
         except Exception:
             raise InvalidDateTimeFormat()
 
-        if "validation_status" in data and data.get("validation_status") != "PENDING":
-            if not "validator_id" in data:
-                raise MissingRequiredPropertyError("validator_id")
+        if "validation_status" in data:
+            status = data.get("validation_status")
 
-            validator = self.user_service.get_user(lambda q, u: q.filter_by(id=data.get("validator_id"), is_deleted=False).first())
+            if status == "PENDING":
+                data["validator"] = None
+                data["date_validated"] = None
+            else:
+                if not "validator_id" in data:
+                    raise MissingRequiredParameterError("validator_id")
+                
+                validator_id = data.get("validator_id", 0)
+                validator = self.user_service.get_user(lambda q, u: q.filter_by(id=validator_id, is_deleted=False).first())
+                if not validator: raise UserNotFoundError()
 
-            if not validator: raise UserNotFoundError()
-            data["date_validated"] = datetime.now()
+                data["validator"] = validator
+                data["date_validated"] = datetime.now()
 
         if "term_id" in data:
             term = self.term_service.get_term(lambda q, t: q.filter_by(id=data.get("term_id"), is_deleted=False).first())
@@ -163,7 +194,7 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot delete SWTD form.")
+            raise AuthorizationError("Cannot delete SWTD form.")
         
         self.swtd_service.delete_swtd(swtd)
         return self.build_response({"message": "SWTD Form deleted."}, 200)
@@ -176,7 +207,7 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError(f"Cannot retreive data for SWTDForm {field_name}.")
+            raise AuthorizationError(f"Cannot retreive data for SWTDForm {field_name}.")
         
         prop = getattr(swtd, field_name, None)
         use_list = isinstance(prop, list)
@@ -202,7 +233,7 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot add an SWTD form comment.")
+            raise AuthorizationError("Cannot add an SWTD form comment.")
 
         data = {**request.json, "author_id": requester.id, "swtd_id": swtd.id}
         required_fields = ['message']
@@ -220,7 +251,7 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError("Cannot get SWTDForm comment data.")
+            raise AuthorizationError("Cannot get SWTDForm comment data.")
         
         comment = self.swtd_comment_service.get_comment(lambda q, c: q.filter_by(id=comment_id, is_deleted=False).first())
         if not comment or comment not in swtd.comments: raise SWTDCommentNotFoundError()
@@ -231,8 +262,12 @@ class SWTDController(Blueprint, BaseController):
     def update_swtd_comment(self, form_id: int, comment_id: int) -> Response:
         requester = self.jwt_service.get_requester()
 
+        allowed_fields = ["message"]
         data = {**request.json}
-        if "message" not in data: raise MissingRequiredPropertyError("message")
+        if not all(key in allowed_fields for key in data.items()):
+            raise InvalidParameterError()
+
+        if "message" not in data: raise MissingRequiredParameterError("message")
         
         swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
         if not swtd: raise SWTDFormNotFoundError()
@@ -240,8 +275,7 @@ class SWTDController(Blueprint, BaseController):
         comment = self.swtd_comment_service.get_comment(lambda q, c: q.filter_by(id=comment_id, is_deleted=False).first())
         if not comment or comment not in swtd.comments: raise SWTDCommentNotFoundError()
 
-        if requester != comment.author:
-            raise InsufficientPermissionsError("Cannot update comment data.")
+        if requester != comment.author: raise AuthorizationError("Cannot update comment data.")
         
         comment = self.swtd_comment_service.update_comment(comment, **data)
         return self.build_response({"comment": comment.to_dict()}, 200)
@@ -257,7 +291,7 @@ class SWTDController(Blueprint, BaseController):
         if not comment or comment not in swtd.comments: raise SWTDCommentNotFoundError()
 
         if requester != comment.author:
-            raise InsufficientPermissionsError("Cannot delete comment.")
+            raise AuthorizationError("Cannot delete comment.")
         
         comment = self.swtd_comment_service.delete_comment(comment)
         return self.build_response({"message": "Comment deleted."}, 200)
@@ -270,10 +304,10 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot add SWTD form proof.")
+            raise AuthorizationError("Cannot add SWTD form proof.")
         
         files = request.files.getlist('files')
-        if not files: raise MissingRequiredPropertyError("files")
+        if not files: raise MissingRequiredParameterError("files")
 
         proofs = []
         for file in files:
@@ -292,7 +326,7 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot retrieve SWTD form proof.")
+            raise AuthorizationError("Cannot retrieve SWTD form proof.")
 
         proof = self.ft_service.get_proof(lambda q, p: q.filter_by(id=proof_id).first())
         if not proof: raise ProofNotFoundError()
@@ -308,12 +342,12 @@ class SWTDController(Blueprint, BaseController):
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot delete SWTD form proof.")
+            raise AuthorizationError("Cannot delete SWTD form proof.")
 
         proof = self.ft_service.get_proof(lambda q, p: q.filter_by(id=proof_id).first())
         if not proof: raise ProofNotFoundError()
 
-        if proof not in swtd.proof: raise InsufficientPermissionsError("Cannot delete proof of other SWTDs")
+        if proof not in swtd.proof: raise AuthorizationError("Cannot delete proof of other SWTDs")
 
         self.ft_service.delete_proof(proof)
         self.swtd_service.update_swtd(swtd, validation_status="PENDING")

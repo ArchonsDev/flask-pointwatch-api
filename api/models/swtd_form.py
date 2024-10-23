@@ -21,7 +21,6 @@ class SWTDForm(db.Model):
     total_hours = db.Column(db.Float, nullable=False)
     points = db.Column(db.Float, nullable=False)
     benefits = db.Column(db.Text, nullable=False)
-    has_deliverables = db.Column(db.Boolean, nullable=False)
 
     # Form Validation
     date_validated = db.Column(db.DateTime)
@@ -56,7 +55,6 @@ class SWTDForm(db.Model):
             "total_hours": self.total_hours,
             "points": self.points,
             "benefits": self.benefits,
-            "has_deliverables": self.has_deliverables,
 
             # Form Validation
             "date_validated": self.date_validated.strftime("%m-%d-%Y %H:%M") if self.date_validated else None,

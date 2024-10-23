@@ -3,7 +3,8 @@ from datetime import timedelta
 from flask_jwt_extended import create_access_token, get_jwt_identity
 
 from ..models.user import User
-from ..exceptions import AuthenticationError
+
+from ..exceptions.authentication import AuthenticationError
 
 class JWTService:
     def __init__(self) -> None:

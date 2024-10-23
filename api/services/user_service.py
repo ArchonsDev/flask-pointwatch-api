@@ -8,33 +8,29 @@ from ..models.point_summary import PointSummary
 from ..models.term import Term
 from ..models.user import User
 
-from ..services.password_encoder_service import PasswordEncoderService
 from ..services.clearing_service import ClearingService
 
-from ..exceptions import InsufficientSWTDPointsError, TermClearingError
+from ..exceptions.conflct import ResourceAlreadyExistsError
+from ..exceptions.resource import ResourceNotFoundError
+from ..exceptions.validation import InvalidParameterError, InsufficientPointsError
 
 class UserService:
-    def __init__(self, db: SQLAlchemy, password_encoder_service: PasswordEncoderService, clearing_service: ClearingService) -> None:
+    def __init__(self, db: SQLAlchemy, clearing_service: ClearingService) -> None:
         self.db = db
-        self.password_encoder_service = password_encoder_service
         self.clearing_service = clearing_service
 
     # Create
     def create_user(self, **data: dict[str, Any]) -> User:
-        user = User(
-            # Credentials
-            email=data.get("email"),
-            password=self.password_encoder_service.encode_password(data.get("password")),
+        user = User()
 
-            # Profile
-            employee_id=data.get("employee_id"),
-            firstname=data.get("firstname"),
-            lastname=data.get("lastname")
-        )
-        
+        for key, value in data.items():
+            if not hasattr(user, key):
+                raise InvalidParameterError(key)
+            
+            setattr(user, key, value)
+
         self.db.session.add(user)
         self.db.session.commit()
-
         return user
 
     # Read One
@@ -43,27 +39,11 @@ class UserService:
 
     # Update
     def update_user(self, user: User, **data: dict[str, Any]) -> User:
-        allowed_fields = [
-            "access_level",
-            "department_id",
-            "firstname",
-            "is_deleted",
-            "is_ms_linked",
-            "lastname",
-            "point_balance",
-            "password"
-        ]
+        for key, value in data.items():
+            if not hasattr(user, key):
+                raise InvalidParameterError(key)
 
-        for field in allowed_fields:
-            value = data.get(field)
-
-            if value is None:
-                continue
-
-            if field == 'password':
-                value = self.password_encoder_service.encode_password(value)
-
-            setattr(user, field, value)
+            setattr(user, key, value)
 
         user.date_modified = datetime.now()
         self.db.session.commit()
@@ -115,16 +95,14 @@ class UserService:
         }
 
     def grant_clearance(self, user: User, target: User, term: Term) -> None:
-        if self.clearing_service.get_clearing(
-            lambda q, c: q.filter_by(user_id=target.id, term_id=term.id, is_deleted=False).first()
-        ):
-            raise TermClearingError("User already cleared for this term.")
+        clearing = self.clearing_service.get_clearing(lambda q, c: q.filter_by(user_id=target.id, term_id=term.id, is_deleted=False).first())
+        if clearing: raise ResourceAlreadyExistsError("User already cleared for this term.")
 
         points = self.get_point_summary(target, term)
 
         available_points = points.valid_points + target.point_balance
         if available_points < points.required_points:
-            raise InsufficientSWTDPointsError(points.lacking_points)
+            raise InsufficientPointsError(points.lacking_points)
         
         target.point_balance += points.excess_points - points.lacking_points
         target.date_modified = datetime.now()
@@ -141,11 +119,8 @@ class UserService:
     def revoke_clearance(self, target: User, term: Term) -> None:
         points = self.get_point_summary(target, term)
 
-        clearing = self.clearing_service.get_clearing(
-            lambda q, c: q.filter_by(user_id=target.id, term_id=term.id, is_deleted=False).first()
-        )
-        if not clearing:
-            raise TermClearingError("User has not been cleared for this term.")
+        clearing = self.clearing_service.get_clearing(lambda q, c: q.filter_by(user_id=target.id, term_id=term.id, is_deleted=False).first())
+        if not clearing: raise ResourceNotFoundError("User has not been cleared for this term.")
 
         target.point_balance -= points.excess_points - clearing.applied_points
         target.date_modified = datetime.now()

@@ -6,7 +6,10 @@ from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, term_service, auth_service
-from ..exceptions import ResourceNotFoundError, InsufficientPermissionsError, InvalidDateTimeFormat, TermNotFoundError
+
+from ..exceptions.authorization import AuthorizationError
+from ..exceptions.resource import ResourceNotFoundError,TermNotFoundError
+from ..exceptions.validation import InvalidDateTimeFormat, InvalidParameterError
 
 class TermController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -44,20 +47,17 @@ class TermController(Blueprint, BaseController):
         except Exception:
             raise InvalidDateTimeFormat()
 
-        terms = self.term_service.get_term(
-            lambda q, t: q.filter_by(**params).all()
-        )
-
+        terms = self.term_service.get_term(lambda q, t: q.filter_by(**params).all())
         return self.build_response({"terms": [t.to_dict() for t in terms]}, 200)
-    
+
     @jwt_required()
     def create_term(self) -> Response:
         requester = self.jwt_service.get_requester()
 
         if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot create Term.")
+            raise AuthorizationError("Cannot create Term.")
 
-        data = request.json
+        data = {**request.json}
         required_fields = [
             'name',
             'start_date',
@@ -75,10 +75,10 @@ class TermController(Blueprint, BaseController):
             raise InvalidDateTimeFormat()
         
         term = self.term_service.create_term(
-            data.get('name'),
-            start_date,
-            end_date,
-            data.get('type').upper()
+            name=data.get('name'),
+            start_date=start_date,
+            end_date=end_date,
+            type=data.get('type').strip().upper()
         )
 
         return self.build_response({"term": term.to_dict()}, 200)
@@ -100,24 +100,32 @@ class TermController(Blueprint, BaseController):
         if not term: raise TermNotFoundError()
 
         if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot update Term.")
+            raise AuthorizationError("Cannot update Term.")
 
         data = {**request.json}
+        allowed_fields = [
+            'is_deleted',
+            'name',
+            'start_date',
+            'end_date',
+            'type'
+        ]
+        if not all(key in allowed_fields for key in data.keys()):
+            raise InvalidParameterError()
 
         try:
-            date_fmt = '%m-%d-%Y'
+            if 'start_date' in data:
+                data['start_date'] = datetime.strptime(data.get('start_date'), '%m-%d-%Y')
 
-            if data.get('start_date'):
-                start_date = datetime.strptime(data.get('start_date'), date_fmt)
-                data['start_date'] = start_date
-
-            if data.get('end_date'):
-                end_date = datetime.strptime(data.get('end_date'), date_fmt)
-                data['end_date'] = end_date
+            if 'end_date' in data:
+                data['end_date'] = datetime.strptime(data.get('end_date'), '%m-%d-%Y')
         except Exception:
             raise InvalidDateTimeFormat()
-        term = self.term_service.update_term(term, **data)
 
+        if 'type' in data:
+            data['type'] = data.get('type').strip().upper()
+
+        term = self.term_service.update_term(term, **data)
         return self.build_response({"term": term.to_dict()}, 200)
 
     @jwt_required()
@@ -128,7 +136,7 @@ class TermController(Blueprint, BaseController):
         if not term: raise TermNotFoundError()
 
         if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot delete Term.")
+            raise AuthorizationError("Cannot delete Term.")
 
         self.term_service.delete_term(term)
         return self.build_response({"message": "Term deleted"}, 200)
@@ -142,7 +150,7 @@ class TermController(Blueprint, BaseController):
 
         protected_fields = ["swtd_forms", "clearances"]
         if field_name in protected_fields and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError(f"Cannot retreive data for term {field_name}.")
+            raise AuthorizationError(f"Cannot retreive data for term {field_name}.")
         
         if not hasattr(term, field_name): raise ResourceNotFoundError()
 

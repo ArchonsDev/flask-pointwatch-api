@@ -15,7 +15,7 @@ from ..services.term_service import TermService
 from ..services.user_service import UserService
 from ..services.mail_service import MailService
 
-from ..exceptions import InvalidParameterError
+from ..exceptions.validation import InvalidParameterError
 
 class NotificationService:
     def __init__(self, db: SQLAlchemy, socketio: SocketIO, term_service: TermService, user_service: UserService, mail_service: MailService) -> None:

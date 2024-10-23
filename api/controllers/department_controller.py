@@ -6,7 +6,11 @@ from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 from ..services import jwt_service, user_service, department_service, auth_service, ft_service, term_service
-from ..exceptions import ResourceNotFoundError, TermNotFoundError, MissingRequiredPropertyError, InsufficientPermissionsError, DepartmentNotFoundError, AuthenticationError, UserNotFoundError, DuplicateValueError
+
+from ..exceptions.authorization import AuthorizationError
+from ..exceptions.conflct import ResourceAlreadyExistsError
+from ..exceptions.resource import ResourceNotFoundError, DepartmentNotFoundError, UserNotFoundError, TermNotFoundError
+from ..exceptions.validation import InvalidParameterError, MissingRequiredParameterError
 
 class DepartmentController(Blueprint, BaseController):
     def __init__(self, name: str, import_name: str, **kwargs: dict[str, Any]) -> None:
@@ -42,7 +46,7 @@ class DepartmentController(Blueprint, BaseController):
         requester = self.jwt_service.get_requester()
 
         if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError("Cannot create department.")
+            raise AuthorizationError("Cannot create department.")
         
         data = {**request.json}
         required_fields = [
@@ -56,11 +60,11 @@ class DepartmentController(Blueprint, BaseController):
         self.check_fields(data, required_fields)
 
         department = self.department_service.create_department(
-            data.get('name'),
-            data.get('required_points'),
-            data.get('level'),
-            data.get('midyear_points'),
-            data.get('use_schoolyear')
+            name=data.get('name'),
+            required_points=data.get('required_points'),
+            level=data.get('level').strip().upper(),
+            midyear_points=data.get('midyear_points'),
+            use_schoolyear=data.get('use_schoolyear')
         )
 
         return self.build_response({"department": department.to_dict()}, 200)
@@ -76,24 +80,47 @@ class DepartmentController(Blueprint, BaseController):
         requester = self.jwt_service.get_requester()
 
         if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError("Cannot update department.")
+            raise AuthorizationError("Cannot update department.")
 
         department = self.department_service.get_department(lambda q, d: q.filter_by(id=department_id, is_deleted=False).first())
         if not department: raise DepartmentNotFoundError()
 
-        params = {**request.json}
+        allowed_fields = [
+            'is_deleted',
+            'name',
+            'required_points',
+            'midyear_points',
+            'use_schoolyear',
+            'head_id'
+        ]
+        data = {**request.json}
 
-        if "head_id" in params and not "remove_head" in params:
-            head_id = params.pop("head_id")
+        if not all(key in allowed_fields for key in data.keys()):
+            raise InvalidParameterError()
 
-            head = self.user_service.get_user(lambda q, u: q.filter_by(id=head_id).first())
-            if not head: raise UserNotFoundError()
+        if "head_id" in data:
+            head_id = data.pop("head_id")
 
-            if department.head == head: raise DuplicateValueError("head")
+            if head_id == 0:
+                head = department.head
 
-            params["head"] = head
+                if department.head:
+                    if head.access_level < 2:
+                        self.user_service.update_user(head, access_level=0)
 
-        department = self.department_service.update_department(department, **params)
+                data["head"] = None
+            else:
+                head = self.user_service.get_user(lambda q, u: q.filter_by(id=head_id).first())
+                if not head: raise UserNotFoundError()
+
+                if department.head == head: raise ResourceAlreadyExistsError("head")
+
+                if head.access_level < 2:
+                    self.user_service.update_user(head, access_level=1)
+
+                data["head"] = head
+
+        department = self.department_service.update_department(department, **data)
         return self.build_response({"department": department.to_dict()}, 200)
 
     @jwt_required()
@@ -101,7 +128,7 @@ class DepartmentController(Blueprint, BaseController):
         requester = self.jwt_service.get_requester()
 
         if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError("Could not delete department.")
+            raise AuthorizationError("Could not delete department.")
 
         department = self.department_service.get_department(lambda q, d: q.filter_by(id=department_id, is_deleted=False).first())
         if not department: raise DepartmentNotFoundError()
@@ -119,7 +146,7 @@ class DepartmentController(Blueprint, BaseController):
         if not department: raise DepartmentNotFoundError()
 
         if field_name in protected_fields and not department.head == requester and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
-            raise InsufficientPermissionsError(f"Cannot retrieve data for department {field_name}")
+            raise AuthorizationError(f"Cannot retrieve data for department {field_name}")
         
         if not hasattr(department, field_name): raise ResourceNotFoundError()
         prop = getattr(department, field_name, None)
@@ -146,13 +173,13 @@ class DepartmentController(Blueprint, BaseController):
 
         if not department: raise DepartmentNotFoundError()
         
-        if not "term_id" in request.args: raise MissingRequiredPropertyError("term_id")
+        if not "term_id" in request.args: raise MissingRequiredParameterError("term_id")
         
         term = self.term_service.get_term(lambda q, t: q.filter_by(id=int(request.args.get("term_id", 0)), is_deleted=False).first())
         if not term: raise TermNotFoundError()
         
         if not department.head == requester and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot export staff validation data.")
+            raise AuthorizationError("Cannot export staff validation data.")
 
         content = self.ft_service.export_for_head(requester, department, term)
 
@@ -169,13 +196,13 @@ class DepartmentController(Blueprint, BaseController):
         department = self.department_service.get_department(lambda q, u: q.filter_by(id=department_id, is_deleted=False).first())
         if not department: raise DepartmentNotFoundError()
         
-        if not "term_id" in request.args: raise MissingRequiredPropertyError("term_id")
+        if not "term_id" in request.args: raise MissingRequiredParameterError("term_id")
         
         term = self.term_service.get_term(lambda q, t: q.filter_by(id=int(request.args.get("term_id", 0)), is_deleted=False).first())
         if not term: raise TermNotFoundError()
         
         if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-            raise InsufficientPermissionsError("Cannot export staff validation data.")
+            raise AuthorizationError("Cannot export staff validation data.")
 
         content = self.ft_service.export_for_staff(requester, department, term)
 
