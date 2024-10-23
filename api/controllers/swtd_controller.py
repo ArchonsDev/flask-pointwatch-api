@@ -300,7 +300,7 @@ class SWTDController(Blueprint, BaseController):
     def add_swtd_proof(self, form_id: int) -> Response:
         requester = self.jwt_service.get_requester()
 
-        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).ifrst())
+        swtd = self.swtd_service.get_swtd(lambda q, s: q.filter_by(id=form_id, is_deleted=False).first())
         if not swtd: raise SWTDFormNotFoundError()
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
