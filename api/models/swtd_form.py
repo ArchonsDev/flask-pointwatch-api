@@ -60,5 +60,6 @@ class SWTDForm(db.Model):
             "date_validated": self.date_validated.strftime("%m-%d-%Y %H:%M") if self.date_validated else None,
             "validation_status": self.validation_status,
 
-            "author": self.author.to_dict()
+            "author": self.author.to_dict(),
+            "term": self.term.to_dict()
         }
