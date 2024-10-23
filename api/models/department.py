@@ -45,5 +45,9 @@ class Department(db.Model):
             "level": self.level,
             "midyear_points": self.midyear_points,
             "has_midyear": self.has_midyear,
-            "use_schoolyear": self.use_schoolyear
+            "use_schoolyear": self.use_schoolyear,
+
+            # Relationships
+            "head": self.head.to_dict() if self.head else None,
+            "members": [m.to_dict() for m in self.members]
         }

@@ -85,5 +85,8 @@ class User(db.Model):
 
             # Account Information
             "is_ms_linked": self.is_ms_linked,
-            "access_level": self.access_level
+            "access_level": self.access_level,
+
+            # Relationships
+            "department": self.department.to_dict() if self.department else None
         }
