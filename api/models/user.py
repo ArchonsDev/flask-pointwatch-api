@@ -88,5 +88,6 @@ class User(db.Model):
             "access_level": self.access_level,
 
             # Relationships
+            "clearances": [c.to_dict() for c in self.clearances],
             "department": self.department.to_dict() if self.department else None
         }

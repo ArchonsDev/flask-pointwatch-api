@@ -126,22 +126,21 @@ class UserController(Blueprint, BaseController):
         requester = self.jwt_service.get_requester()
         
         user = self.user_service.get_user(lambda q, u: q.filter_by(id=user_id, is_deleted=False).first())
-        # Ensure that the target exists.
         if not user: raise UserNotFoundError()
 
-        if request.method == 'GET':
-            # Ensure that the requester has permission.
-            if requester != user and not requester.is_head_of(user) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
-                raise AuthorizationError("Cannot retrieve user points.")
-            
-            term_id = int(request.args.get('term_id', 0))
-            if not term_id: raise MissingRequiredParameterError('term_id')
-            
-            term = self.term_service.get_term(lambda q, t: q.filter_by(id=term_id, is_deleted=False).first())
-            if not term: raise TermNotFoundError()
+        if requester != user and not requester.is_head_of(user) and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
+            raise AuthorizationError("Cannot retrieve user points.")
+        
+        data = {**request.args}
+        
+        term_id = data.get("term_id")
+        if not term_id: raise MissingRequiredParameterError('term_id')
+        
+        term = self.term_service.get_term(lambda q, t: q.filter_by(id=int(term_id), is_deleted=False).first())
+        if not term: raise TermNotFoundError()
 
-            points = self.user_service.get_point_summary(user, term)
-            return self.build_response({"points": points}, 200)
+        points = self.user_service.get_point_summary(user, term)
+        return self.build_response({"points": points}, 200)
 
     @jwt_required()
     def export_user_swtd_data(self, user_id: int) -> Response:
