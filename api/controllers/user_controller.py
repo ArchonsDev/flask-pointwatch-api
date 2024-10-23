@@ -74,6 +74,7 @@ class UserController(Blueprint, BaseController):
         allowed_fields = [
             'is_deleted',
             'password',
+            'employee_id',
             'firstname',
             'lastname',
             'point_balance',
