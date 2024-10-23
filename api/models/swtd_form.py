@@ -61,6 +61,6 @@ class SWTDForm(db.Model):
             "validation_status": self.validation_status,
 
             "author": self.author.to_dict(),
-            "proof": self.proof.to_dict(),
+            "proof": [p.to_dict() for p in self.proof],
             "term": self.term.to_dict()
         }
