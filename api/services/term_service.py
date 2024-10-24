@@ -29,7 +29,7 @@ class TermService:
         return filter_func(Term.query, Term)
 
     def update_term(self, term: Term, **data: dict[str, Any]) -> Term:
-        for key, value in data.tiems():
+        for key, value in data.items():
             if not hasattr(term, key):
                 raise InvalidParameterError(key)
 

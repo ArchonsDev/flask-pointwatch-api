@@ -123,7 +123,7 @@ class TermController(Blueprint, BaseController):
             raise InvalidDateTimeFormat()
 
         if 'type' in data:
-            data['type'] = data.get('type').strip().upper()
+            data['type'] = data.get('type', '').strip().upper()
 
         term = self.term_service.update_term(term, **data)
         return self.build_response({"term": term.to_dict()}, 200)
