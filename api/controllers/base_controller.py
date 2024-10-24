@@ -2,7 +2,7 @@ from typing import Any
 
 from flask import jsonify, Response
 
-from ..exceptions import *
+from ..exceptions.validation import MissingRequiredParameterError
 
 class BaseController:
     def build_response(self, response: Any, code: int) -> Response:
@@ -14,4 +14,4 @@ class BaseController:
     def check_fields(self, data: dict[str, Any], required_fields: list[str]):
         for field in required_fields:
             if field not in data:
-                raise MissingRequiredPropertyError(field)
+                raise MissingRequiredParameterError(field)

@@ -144,6 +144,7 @@ class SWTDController(Blueprint, BaseController):
             'points',
             'benefits',
             'validation_status',
+            'validator_id',
             'term_id'
         ]
         data = {"validation_status": "PENDING", **request.json}
