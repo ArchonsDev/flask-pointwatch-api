@@ -91,7 +91,8 @@ class DepartmentController(Blueprint, BaseController):
             'required_points',
             'midyear_points',
             'use_schoolyear',
-            'head_id'
+            'head_id',
+            'level'
         ]
         data = {**request.json}
 
@@ -119,6 +120,9 @@ class DepartmentController(Blueprint, BaseController):
                     self.user_service.update_user(head, access_level=1)
 
                 data["head"] = head
+        
+        if "level" in data:
+            data["level"] = data.get("level", '').strip().upper()
 
         department = self.department_service.update_department(department, **data)
         return self.build_response({"department": department.to_dict()}, 200)
