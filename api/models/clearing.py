@@ -37,6 +37,14 @@ class Clearing(db.Model):
             "applied_points": self.applied_points,
 
             "clearer": self.clearer.to_dict(),
-            "user": self.user.to_dict(),
-            "term": self.term.to_dict()
+            "user": {
+                "id": self.user.id,
+                "firstname": self.user.firstname,
+                "lastname": self.user.lastname,
+                "employee_id": self.user.employee_id
+            },
+            "term": {
+                "id": self.term.id,
+                "name": self.term.name
+            }
         }
