@@ -40,4 +40,4 @@ class TermService:
         return term
 
     def delete_term(self, term: Term) -> None:
-        self.update_term(term, is_deleted=False)
+        self.update_term(term, is_deleted=True)
