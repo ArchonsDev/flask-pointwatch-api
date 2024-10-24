@@ -6,10 +6,10 @@ from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
 
-from ..services import jwt_service, user_service, auth_service, term_service, ft_service, department_service, password_encoder_service
+from ..services import jwt_service, user_service, auth_service, term_service, ft_service, department_service, password_encoder_service, clearing_service
 
 from ..exceptions.authorization import AuthorizationError
-from ..exceptions.resource import ResourceNotFoundError, UserNotFoundError, DepartmentNotFoundError, TermNotFoundError
+from ..exceptions.resource import ResourceNotFoundError, UserNotFoundError, DepartmentNotFoundError, TermNotFoundError, ClearingNotFoundError
 from ..exceptions.validation import MissingRequiredParameterError, InvalidParameterError
 
 class UserController(Blueprint, BaseController):
@@ -23,6 +23,7 @@ class UserController(Blueprint, BaseController):
         self.ft_service = ft_service
         self.department_service = department_service
         self.password_encoder_service = password_encoder_service
+        self.clearing_service = clearing_service
 
         self.map_routes()
 
@@ -215,23 +216,19 @@ class UserController(Blueprint, BaseController):
         return self.build_response({"clearance": clearance.to_dict()}, 200)
     
     @jwt_required()
-    def revoke_user_clearance(self, user_id: int) -> Response:
+    def revoke_user_clearance(self, user_id: int, clearance_id: int) -> Response:
         requester = self.jwt_service.get_requester()
-
-        params = {**request.args}
-
-        if "term_id" not in params: raise MissingRequiredParameterError("term_id")
 
         user = self.user_service.get_user(lambda q, u: q.filter_by(id=user_id, is_deleted=False).first())
         if not user: raise UserNotFoundError()
 
-        term = self.term_service.get_term(lambda q, t: q.filter_by(id=int(params.get("term_id", 0)), is_deleted=False).first())
-        if not term: raise TermNotFoundError()
+        clearing = self.clearing_service.get_clearing(lambda q, c: q.filter_by(id=clearance_id, is_deleted=False).first())
+        if not clearing: raise ClearingNotFoundError()
 
-        if not requester.is_head_of(user) and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
+        if not requester.is_head_of(clearing.user) and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
             raise AuthorizationError("Cannot revoke user clearance.")
         
-        self.user_service.revoke_clearance(user, term)
+        self.user_service.revoke_clearance(user, clearing.term)
 
         return self.build_response({"message": "Clearance revoked."}, 200)
 
