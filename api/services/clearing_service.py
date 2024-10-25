@@ -30,7 +30,7 @@ class ClearingService(object):
 
     def update_clearing(self, clearing: Clearing, **data: dict[str, Any]) -> Clearing:
         for key, value in data.items():
-            if not hasattr(clearing, key, value):
+            if not hasattr(clearing, key):
                 raise InvalidParameterError(key)
 
             setattr(clearing, key, value)
