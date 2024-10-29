@@ -294,7 +294,7 @@ class SWTDController(Blueprint, BaseController):
         comment = self.swtd_comment_service.get_comment(lambda q, c: q.filter_by(id=comment_id, is_deleted=False).first())
         if not comment or comment not in swtd.comments: raise SWTDCommentNotFoundError()
 
-        if requester != comment.author:
+        if requester != comment.author and not self.auth_service.has_permissions(requester, minimum_auth="head"):
             raise AuthorizationError("Cannot delete comment.")
         
         comment = self.swtd_comment_service.delete_comment(comment)
