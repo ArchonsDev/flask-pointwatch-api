@@ -8,18 +8,20 @@ from sqlalchemy import delete
 from ..models.department import Department
 from ..models.assoc_table import department_head
 
+from ..exceptions.validation import InvalidParameterError
+
 class DepartmentService(object):
     def __init__(self, db: SQLAlchemy) -> None:
         self.db = db
 
-    def create_department(self, name: str, required_points: float, level: str, midyear_points: float, use_schoolyear: bool) -> Department:
-        department = Department(
-            name=name,
-            required_points=required_points,
-            level=level.strip().upper(),
-            midyear_points=midyear_points,
-            use_schoolyear=use_schoolyear
-        )
+    def create_department(self, **data: dict[str, Any]) -> Department:
+        department = Department()
+
+        for key, value in data.items():
+            if not hasattr(department, key):
+                raise InvalidParameterError(key)
+            
+            setattr(department, key, value)
 
         self.db.session.add(department)
         self.db.session.commit()
@@ -29,41 +31,11 @@ class DepartmentService(object):
         return filter_func(Department.query, Department)
 
     def update_department(self, department: Department, **data: dict[str, Any]) -> Department:
-        allowed_fields = {
-            "name",
-            "required_points",
-            "level",
-            "midyear_points",
-            "use_schoolyear",
-            "head",
-            "remove_head",
-            "is_deleted"
-        }
+        for key, value in data.items():
+            if not hasattr(department, key):
+                raise InvalidParameterError(key)
 
-        for field in allowed_fields:
-            value = data.get(field)
-
-            if value is None:
-                continue
-
-            if field == "remove_head":
-                if department.head.access_level == 1:
-                    department.head.access_level = 0
-
-                self.db.session.execute(
-                    delete(department_head).where(
-                        (department_head.c.user_id == department.head.id) & (department_head.c.department_id == department.id)
-                    )
-                )
-                print("was executed")
-
-            if field == "head" and value.access_level < 1:
-                value.access_level = 1
-
-            if field == "level":
-                value = value.strip().upper()
-
-            setattr(department, field, value)
+            setattr(department, key, value)
 
         department.date_modified = datetime.now()
         self.db.session.commit()

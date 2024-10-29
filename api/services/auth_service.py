@@ -19,11 +19,7 @@ class AuthService:
         return user.access_level >= auth_levels.get(minimum_auth, min_access_level)
 
     def login(self, user: User, password: str) -> Union[str, None]:
-        # Esnure that the user account is not deleted/disabled.
-        if user.is_deleted:
-            return None
-        # Ensure that the hashed passwords match.
-        if not self.password_encoder_service.check_password(user.password, password):
+        if user.is_deleted or not self.password_encoder_service.check_password(user.password, password):
             return None
 
         return self.jwt_service.generate_token(user.email)

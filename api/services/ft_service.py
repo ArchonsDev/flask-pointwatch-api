@@ -208,7 +208,10 @@ class FTService:
             pdf.add_text(f"     Total points from Pending SWTDs: {points.pending_points}")
             pdf.add_text(f"     Total points from For Revision SWTDs: {points.invalid_points}")
 
-            swtd_forms = list(filter(lambda swtd_form: swtd_form.term_id == term.id, user.swtd_forms))
+            swtd_forms = list(filter(
+                lambda swtd_form: (swtd_form.term_id == term.id) & (swtd_form.is_deleted == False), user.swtd_forms
+            ))
+
             categories = {
                 "Profession/Work-Relevant Webinar": 0,
                 "Life-Relevant Webinar": 0,
@@ -313,7 +316,7 @@ class FTService:
             if member == department.head or member.is_deleted:
                 continue
 
-            swtds = list(filter(lambda swtd_form: swtd_form.term == term, member.swtd_forms))
+            swtds = list(filter(lambda swtd_form: (swtd_form.term == term) & (swtd_form.is_deleted == False), member.swtd_forms))
             pending_swtds = len(list(filter(lambda swtd_form: swtd_form.validation_status == "PENDING", swtds)))
             rejected_swtds = len(list(filter(lambda swtd_form: swtd_form.validation_status == "REJECTED", swtds)))
             is_cleared = False
