@@ -35,9 +35,9 @@ class AuthController(Blueprint, BaseController):
             'email',
             'firstname',
             'lastname',
-            'password',
-            'department_id'
+            'password'
         ]
+        
         data = {**request.json}
         self.check_fields(data, required_fields)
         
@@ -47,8 +47,7 @@ class AuthController(Blueprint, BaseController):
         existing_user = self.user_service.get_user(lambda q, u: q.filter_by(employee_id=data.get('employee_id')).first())
         if existing_user: raise UserAlreadyExistsError("Employee ID in use.")
 
-        department = self.department_service.get_department(lambda q, d: q.filter_by(id=data.get('department_id'), is_deleted=False).first())
-        if not department: raise DepartmentNotFoundError()
+        department = self.department_service.get_department(lambda q, d: q.filter_by(id=data.get('department_id', 0), is_deleted=False).first())
 
         user = self.user_service.create_user(
             employee_id=data.get('employee_id'),
