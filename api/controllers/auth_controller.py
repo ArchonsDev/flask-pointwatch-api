@@ -2,10 +2,12 @@ from typing import Any
 from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
+from ..schemas.user_schema import RegistrationSchema, LoginSchema, AccountRecoverySchema, PasswordResetSchema
+
 from ..services import auth_service, user_service, jwt_service, password_encoder_service, mail_service, department_service
 
 from ..exceptions.authentication import AuthenticationError
-from ..exceptions.resource import UserNotFoundError, DepartmentNotFoundError
+from ..exceptions.resource import UserNotFoundError
 from ..exceptions.conflct import UserAlreadyExistsError
 
 from .base_controller import BaseController
@@ -30,16 +32,7 @@ class AuthController(Blueprint, BaseController):
         self.route('/resetpassword', methods=['POST'])(self.reset_password)
 
     def create_account(self) -> Response:
-        required_fields = [
-            'employee_id',
-            'email',
-            'firstname',
-            'lastname',
-            'password'
-        ]
-        
-        data = {**request.json}
-        self.check_fields(data, required_fields)
+        data = self.parse_form(request.json, RegistrationSchema)
         
         existing_user = self.user_service.get_user(lambda q, u: q.filter_by(email=data.get('email')).first())
         if existing_user: raise UserAlreadyExistsError("Email in use.")
@@ -66,12 +59,7 @@ class AuthController(Blueprint, BaseController):
         return self.build_response(response, 200)
 
     def login(self) -> Response:
-        required_fields = [
-            'email',
-            'password',
-        ]
-        data = {**request.json}
-        self.check_fields(data, required_fields)
+        data = self.parse_form(request.json, LoginSchema)
 
         user = self.user_service.get_user(lambda q, u: q.filter_by(email=data.get('email'), is_deleted=False).first())
         if not user: raise UserNotFoundError()
@@ -87,10 +75,7 @@ class AuthController(Blueprint, BaseController):
         return self.build_response(response, 200)
 
     def recover_account(self) -> Response:
-        required_fields = ['email']
-        data = {**request.json}
-
-        self.check_fields(data, required_fields)
+        data = self.parse_form(request.json, AccountRecoverySchema)
 
         user = self.user_service.get_user(lambda q, u: q.filter_by(email=data.get("email"), is_deleted=False).first())
         if user: self.mail_service.send_recovery_mail(user.email, user.firstname)
@@ -100,10 +85,8 @@ class AuthController(Blueprint, BaseController):
     @jwt_required()
     def reset_password(self) -> Response:
         requester = self.jwt_service.get_requester()
-        required_fields = ['password']
-        data = {**request.json}
 
-        self.check_fields(data, required_fields)
+        data = self.parse_form(request.json, PasswordResetSchema)
 
         password = self.password_encoder_service.encode_password(data.get('password'))
 

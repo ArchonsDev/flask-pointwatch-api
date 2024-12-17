@@ -5,7 +5,7 @@ from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
-
+from ..schemas.user_schema import UpdateUserSchema
 from ..services import jwt_service, user_service, auth_service, term_service, ft_service, department_service, password_encoder_service, clearing_service
 
 from ..exceptions.authorization import AuthorizationError
@@ -72,20 +72,7 @@ class UserController(Blueprint, BaseController):
         if requester != user and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
             raise AuthorizationError("Cannot update user data.")
 
-        allowed_fields = [
-            'is_deleted',
-            'password',
-            'employee_id',
-            'firstname',
-            'lastname',
-            'point_balance',
-            'is_ms_linked',
-            'access_level',
-            'department_id'
-        ]
-        data = {**request.json}
-        if not all(key in allowed_fields for key in data.keys()):
-            raise InvalidParameterError()
+        data = self.parse_form(request.json, UpdateUserSchema)
         
         if 'is_deleted' in data and not self.auth_service.has_permissions(minimum_auth="staff"):
             raise AuthorizationError("Cannot update account activation state.")
