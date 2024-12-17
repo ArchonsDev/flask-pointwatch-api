@@ -5,6 +5,8 @@ from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
+from ..schemas.swtd_schema import CreateSWTDSchema, UpdateSWTDScehma
+from ..schemas.comment_schema import CreateCommentSchema, UpdateCommentSchema
 
 from ..exceptions.authorization import AuthorizationError
 from ..exceptions.resource import SWTDFormNotFoundError, UserNotFoundError, TermNotFoundError, SWTDCommentNotFoundError, ProofNotFoundError
@@ -68,20 +70,7 @@ class SWTDController(Blueprint, BaseController):
     def create_swtd(self) -> Response:
         requester = self.jwt_service.get_requester()
 
-        data = {**request.form}
-        required_fields = [
-            "title",
-            "venue",
-            "category",
-            "start_date",
-            "end_date",
-            "total_hours",
-            "points",
-            "benefits",
-            "term_id"
-        ]
-
-        self.check_fields(data, required_fields)
+        data = self.parse_form(request.form, CreateSWTDSchema)
 
         files = request.files.getlist('files')
         if not files: raise MissingRequiredParameterError("files")
@@ -132,26 +121,9 @@ class SWTDController(Blueprint, BaseController):
 
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
             raise AuthorizationError("Cannot update SWTD form data.")
-        
-        allowed_fields = [
-            'is_deleted',
-            'title',
-            'venue',
-            'category',
-            'start_date',
-            'end_date',
-            'total_hours',
-            'points',
-            'benefits',
-            'validation_status',
-            'validator_id',
-            'term_id'
-        ]
-        data = {"validation_status": "PENDING", **request.json}
 
-        if not all(key in allowed_fields for key in data.keys()):
-            raise InvalidParameterError()
-        
+        data = self.parse_form(request.json, UpdateSWTDScehma)
+
         if 'is_deleted' in data and not self.auth_service.has_permissions(requester, minimum_auth="staff"):
             raise AuthorizationError("Cannot change SWTDForm deletion state.")
 
@@ -239,10 +211,7 @@ class SWTDController(Blueprint, BaseController):
         if not requester.is_head_of(swtd.author) and requester != swtd.author and not self.auth_service.has_permissions(requester, minimum_auth='staff'):
             raise AuthorizationError("Cannot add an SWTD form comment.")
 
-        data = {**request.json, "author_id": requester.id, "swtd_id": swtd.id}
-        required_fields = ['message']
-
-        self.check_fields(data, required_fields)
+        data = self.parse_form({**request.json, "author_id": requester.id, "swtd_id": swtd.id}, CreateCommentSchema)
         
         comment = self.swtd_comment_service.create_comment(**data)
         return self.build_response({"comment": comment.to_dict()}, 200)
@@ -266,10 +235,7 @@ class SWTDController(Blueprint, BaseController):
     def update_swtd_comment(self, form_id: int, comment_id: int) -> Response:
         requester = self.jwt_service.get_requester()
 
-        allowed_fields = ["message"]
-        data = {**request.json}
-        if not all(key in allowed_fields for key in data.keys()):
-            raise InvalidParameterError()
+        data = self.parse_form(request.json, UpdateCommentSchema)
 
         if "message" not in data: raise MissingRequiredParameterError("message")
         

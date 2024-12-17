@@ -5,6 +5,7 @@ from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
+from ..schemas.term_schema import CreateTermSchema, UpdateTermSchema
 from ..services import jwt_service, user_service, term_service, auth_service
 
 from ..exceptions.authorization import AuthorizationError
@@ -57,15 +58,7 @@ class TermController(Blueprint, BaseController):
         if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
             raise AuthorizationError("Cannot create Term.")
 
-        data = {**request.json}
-        required_fields = [
-            'name',
-            'start_date',
-            'end_date',
-            'type'
-        ]
-
-        self.check_fields(data, required_fields)
+        data = self.parse_form(request.json, CreateTermSchema)
 
         try:
             date_fmt = '%m-%d-%Y'
@@ -102,16 +95,7 @@ class TermController(Blueprint, BaseController):
         if not self.auth_service.has_permissions(requester, minimum_auth='staff'):
             raise AuthorizationError("Cannot update Term.")
 
-        data = {**request.json}
-        allowed_fields = [
-            'is_deleted',
-            'name',
-            'start_date',
-            'end_date',
-            'type'
-        ]
-        if not all(key in allowed_fields for key in data.keys()):
-            raise InvalidParameterError()
+        data = self.parse_form(request.json, UpdateTermSchema)
 
         try:
             if 'start_date' in data:

@@ -5,6 +5,7 @@ from flask import Blueprint, request, Response, Flask
 from flask_jwt_extended import jwt_required
 
 from .base_controller import BaseController
+from ..schemas.department_schema import CreateDepartmentSchema, UpdateDepartmentSchema
 from ..services import jwt_service, user_service, department_service, auth_service, ft_service, term_service
 
 from ..exceptions.authorization import AuthorizationError
@@ -48,16 +49,7 @@ class DepartmentController(Blueprint, BaseController):
         if not self.auth_service.has_permissions(requester, minimum_auth="staff"):
             raise AuthorizationError("Cannot create department.")
         
-        data = {**request.json}
-        required_fields = [
-            "name",
-            "required_points",
-            "level",
-            "midyear_points",
-            "use_schoolyear"
-        ]
-
-        self.check_fields(data, required_fields)
+        data = self.parse_form(request.json, CreateDepartmentSchema)
 
         department = self.department_service.create_department(
             name=data.get('name'),
@@ -85,19 +77,7 @@ class DepartmentController(Blueprint, BaseController):
         department = self.department_service.get_department(lambda q, d: q.filter_by(id=department_id, is_deleted=False).first())
         if not department: raise DepartmentNotFoundError()
 
-        allowed_fields = [
-            'is_deleted',
-            'name',
-            'required_points',
-            'midyear_points',
-            'use_schoolyear',
-            'head_id',
-            'level'
-        ]
-        data = {**request.json}
-
-        if not all(key in allowed_fields for key in data.keys()):
-            raise InvalidParameterError()
+        data = self.parse_form(request.json, UpdateDepartmentSchema)
 
         if "head_id" in data:
             head_id = data.pop("head_id")
